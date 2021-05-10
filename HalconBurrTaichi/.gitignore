@@ -30,8 +30,3 @@
 *.exe
 *.out
 *.app
-
-#vs 2019
-.vs
-Debug
-x64

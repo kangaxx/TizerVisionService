@@ -1,0 +1,18 @@
+﻿// TizerVisionService.idl: TizerVisionService 的 IDL 源
+//
+
+// 此文件将由 MIDL 工具处理以
+// 生成类型库(TizerVisionService.tlb)和封送处理代码。
+
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+	uuid(e5f685ec-183d-4cc4-a012-256d6d3c201a),
+	version(1.0),
+]
+library TizerVisionServiceLib
+{
+	importlib("stdole2.tlb");
+};
+
