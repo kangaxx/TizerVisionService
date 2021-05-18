@@ -226,7 +226,7 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 			char msg[INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE] = { '\0' };
 			BurrsPainter burrInfo;
 			//if (actionType)
-				//bp = hw->halconActionTaichi(5, 20, 0, 0, NULL);
+			//burrInfo = hw->halconActionTaichi(5, 20, 0, 0, NULL);
 			//else
 			burrInfo = hw->halconAction(1, 90, 255, 0, 0, NULL);
 			actionType = !actionType;

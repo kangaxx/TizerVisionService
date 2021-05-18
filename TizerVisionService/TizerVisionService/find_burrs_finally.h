@@ -47,5 +47,7 @@ private:
 	int m_LongitudinalAlert = 0;
 	//拍摄到的图像如果是横向的，需要先专成纵向，才能供后续算法处理
 	HImage imageVertToHoriz(const HImage source, int angle = 90);
+	float adjustDis(int& value, float zoom, bool doAdjust = true);
+	
 };
 

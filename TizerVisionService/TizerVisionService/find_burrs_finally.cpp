@@ -309,15 +309,15 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 		int distance = 0;
 		hv_burrs_limit = limit;
 		//预设极片宽度(包含允许的误差）
-		hv_polesWidth = 15;
+		hv_polesWidth = 25;
 		//毛刺方向， 0 , horizontal(horiz) 横向全部 1, vertical(vert) 纵向全部
 		hv_burrs_direction = INT_BURRS_DIRECTION_HORIZ;
 		//比例尺, 40*1.1镜头是0.76， 该镜头加两个环是0.728624
 		hv_zoom_scale = 0.7286;
 		//GenImage1Extern(&ho_Image, "byte", w, h, (Hlong)image, NULL);
 		/*  硬盘文件调试代码  */
-		ReadImage(&ho_Image, "d:/images/16_6.jpg");
-		result.setFileName("d:/images/16_6.jpg");
+		ReadImage(&ho_Image, "d:/images/21_1.bmp");
+		result.setFileName("d:/images/21_1.bmp");
 		/*  硬盘文件调试代码  */
 
 		if (v2h) {
@@ -408,7 +408,7 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 			int size = hv_FindEdgeNum.I();
 			int* left = new int[size];
 			int* right = new int[size];
-			float totalCenter = 0.0;
+			int* width = new int[size];
 			int burrList[10];
 			int measureIdx = 0;
 			for (hv_Index = 1; hv_Index.Continue(end_val137, step_val137); hv_Index += step_val137)
@@ -430,12 +430,13 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 				if (hv_RowEdge > 0 && hv_RowEdgeR > 0) {
 					left[measureIdx] = hv_ColumnEdge.TupleInt().I();
 					right[measureIdx] = hv_ColumnEdgeR.TupleInt().I();
+					width[measureIdx] = right[measureIdx] - left[measureIdx];
 				}
 				else {
 					left[measureIdx] = 0;
 					right[measureIdx] = 0;
+					width[measureIdx] = 0;
 				}
-				totalCenter += (float)(left[measureIdx] + right[measureIdx]) / 2.0;
 				measureIdx++;
 				if (measureIdx >= size) {
 					break;
@@ -444,52 +445,87 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 
 			int BurrsX[10];
 			int BurrsY[10];
+			int BurrsValue[10];
 			int burrsIdx = 0;
 			int BurrValue = 0;
+			int BurrX_Left = 0;
+			int BurrX_Right = 0;
 			int BurrX = 0;
 			int BurrY = 0;
 			int MaxBurrValue = 0;
 			int MaxBurrX = 0;
 			int MaxBurrY = 0;
-			float avgCenter = totalCenter / float(measureIdx);
+			int BurrX_Left_Start = 0;
+			int BurrX_Left_End = 0;
+			int BurrX_Right_Start = 0;
+			int BurrX_Right_End = 0;
 			bool isBurrs = false;
-			//以下算法能够找到毛刺但是暂时不能确定毛刺的方向
-			for (int i = 0; i < end_val137; ++i) {
+			//以下算法能够找到毛刺并且确定毛刺的方向
+			int i = 0;
+			for (i = 0; i < end_val137; ++i) {
 				if ((right[i] - left[i]) > hv_polesWidth[0].I()) {
 					if (!isBurrs) {
+						//毛刺起点
 						isBurrs = true;
 						//这里有一个毛刺，但是究竟是左面还是右面，无法判断，所以我们标记再中心点
 						BurrValue = right[i] - left[i] - hv_polesWidth;
-						if ((float)(right[i] + left[i]) / 2.0 > avgCenter)
-							BurrX = right[i];
-						else
-							BurrX = left[i];
+						BurrX_Right = right[i];
+						BurrX_Left = left[i];
+						//记录左右两侧在一个毛刺起点处的参数，结合终点处的参数，用三角法来判断毛刺最突起处是哪里
+						BurrX_Right_Start = BurrX_Right;
+						BurrX_Left_Start = BurrX_Left;
+
 						BurrY = i * 2;
 					}
 					else {
-						if ((right[i] - left[i]) > BurrValue) {
+						if ((right[i] - left[i] - hv_polesWidth) > BurrValue) {
 							BurrValue = right[i] - left[i] - hv_polesWidth;
-							if ((float)(right[i] + left[i]) / 2.0 > avgCenter)
-								BurrX = right[i];
-							else
-								BurrX = left[i];
+							BurrX_Right = right[i];
+							BurrX_Left = left[i];
+
 							BurrY = i * 2;
 						}
 					}
 				}
 				else {
 					if (isBurrs) {
+						//毛刺终点
 						isBurrs = false;
-						//之前曾出现一个burr，所以要统计一下
+						//记录左右两侧在一个毛刺终点处的参数，结合起点处的参数，用三角法来判断毛刺最突起处是哪里
+						BurrX_Right_End = right[i];
+						BurrX_Left_End = left[i];
+
+						//判断一下是不是最大毛刺
 						if (BurrValue > distance) {
 							distance = BurrValue;
-							MaxBurrValue = BurrValue;
-							MaxBurrX = BurrX;
+							//最大毛刺根据毛刺参数判断毛刺方向
+							//未能正常找到毛刺起点（不太可能吧）
+							if (BurrX_Left_Start == 0)
+								BurrX_Left_Start = BurrX_Left_End;
+							if (BurrX_Right_Start == 0)
+								BurrX_Right_Start = BurrX_Left_End;
+
+							if ((BurrX_Left_Start + BurrX_Left_End - BurrX_Left) > (BurrX_Right - (BurrX_Right_Start + BurrX_Right_End)))
+							{
+								MaxBurrX = BurrX_Left;
+								MaxBurrValue = BurrX_Left_Start - BurrX_Left;
+							}
+							else
+							{
+								MaxBurrX = BurrX_Right;
+								MaxBurrValue = BurrX_Right_Start - BurrX_Right;
+							}
+
 							MaxBurrY = BurrY;
 						}
 						if (burrsIdx < 9) {
-							BurrsX[burrsIdx] = BurrX;
 							BurrsY[burrsIdx] = BurrY;
+							//最大毛刺根据毛刺参数判断毛刺方向
+							if ((BurrX_Left_Start + BurrX_Left_End - BurrX_Left) > (BurrX_Right - (BurrX_Right_Start + BurrX_Right_End)))
+								BurrsX[burrsIdx] = BurrX_Left;
+							else
+								BurrsX[burrsIdx] = BurrX_Right;
+							BurrsValue[burrsIdx] = BurrValue;
 							++burrsIdx;
 						}
 					}
@@ -497,25 +533,53 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 			}
 			//有一个毛刺一直延伸到图像底部
 			if (isBurrs) {
+				//记录左右两侧在一个毛刺终点处的参数，结合起点处的参数，用三角法来判断毛刺最突起处是哪里
+				BurrX_Right_End = right[i];
+				BurrX_Left_End = left[i];
+				
+
 				if (BurrValue > distance) {
 					distance = BurrValue;
-					MaxBurrValue = BurrValue;
-					MaxBurrX = BurrX;
 					MaxBurrY = BurrY;
+					//最大毛刺根据毛刺参数判断毛刺方向
+					//未能正常找到毛刺起点（不太可能吧）
+					if (BurrX_Left_Start == 0)
+						BurrX_Left_Start = BurrX_Left_End;
+					if (BurrX_Right_Start == 0)
+						BurrX_Right_Start = BurrX_Left_End;
+					if ((BurrX_Left_Start + BurrX_Left_End - BurrX_Left) > (BurrX_Right - (BurrX_Right_Start + BurrX_Right_End)))
+					{
+						MaxBurrX = BurrX_Left;
+						MaxBurrValue = BurrX_Left_Start - BurrX_Left;
+					}
+					else
+					{
+						MaxBurrX = BurrX_Right;
+						MaxBurrValue = BurrX_Right_Start - BurrX_Right;
+					}
 				}
 				if (burrsIdx < 9) {
-					BurrsX[burrsIdx] = BurrX;
 					BurrsY[burrsIdx] = BurrY;
+					//最大毛刺根据毛刺参数判断毛刺方向
+					if ((BurrX_Left_Start + BurrX_Left_End - BurrX_Left) > (BurrX_Right - (BurrX_Right_Start + BurrX_Right_End)))
+						BurrsX[burrsIdx] = BurrX_Left;
+					else
+						BurrsX[burrsIdx] = BurrX_Right;
+					BurrsValue[burrsIdx] = BurrValue;
 					++burrsIdx;
 				}
 			}
+			distance = MaxBurrValue;
+			float adjuest = adjustDis(distance, hv_zoom_scale, false);
+
 			result.setMaxBurrX(MaxBurrX);
 			result.setMaxBurrY(MaxBurrY);
-			result.setDistance(0, (float)distance * hv_zoom_scale);
+			result.setDistance(0, adjuest);
 			result.setGrabImageHeight(hv_Height);
 			result.setGrabImageWidth(hv_Width);
 			delete[] left;
 			delete[] right;
+			delete[] width;
 		}
 
 		hv_Distance = (float)distance * hv_zoom_scale;
@@ -597,6 +661,40 @@ HImage halconWorker::imageVertToHoriz(const HImage source, int angle)
 	HImage result;
 	RotateImage(source, &result, angle, "constant");
 	return result;
+}
+
+float halconWorker::adjustDis(int& value, float zoom, bool doAdjust)
+{
+	float distance = (float)value * zoom;
+	if (!doAdjust)
+		return distance;
+	float adjust = 0.0;
+	if (distance > 0 && distance < 2.0) {
+		return 2.0 - sqrt(2.0 - distance);
+	}
+	else if (distance <= 3.0) {
+		return 4.0 - sqrt(4.0 - distance);
+	}
+	else if (distance > 4.0 && distance <= 7.0) {
+		return 8.0 - sqrt(8.0 - distance);
+	}
+	else if (distance > 8.0 && distance <= 11.0) {
+		return 12.0 - sqrt(12.0 - distance);
+	}
+	else if (distance > 12.0 && distance <= 15.0) {
+		return 16.0 - sqrt(16.0 - distance);
+	}
+	else if (distance > 16.0 && distance <= 19.0) {
+		return 20.0 - sqrt(20.0 - distance);
+	}
+	else if (distance > 20.0 && distance <= 23.0) {
+		return 24.0 - sqrt(24.0 - distance);
+	}
+	else {
+		return distance;
+	}
+
+	return 0.0f;
 }
 
 
