@@ -3,6 +3,7 @@
 #include "HDevThread.h"
 
 #include "../../../hds/common.h"
+#include "../../../hds/Logger.h"
 #include "../../../hds/serialization_c11.h"
 #include "../../../hds/commonfunction_c.h"
 
@@ -16,8 +17,8 @@ using namespace serialization_c11;
 
 class halconWorker {
 public:
-	BurrsPainter halconAction(int limit, int grayMin, int grayMax, int width, int height, unsigned char* image, int polesWidth = 15);
-	BurrsPainter halconActionTaichi(int limit, int grayMin, int width, int height, unsigned char* image);
+	BurrsPainter halconAction(int limit, int grayMin, int grayMax, int width, int height, const byte* image, int polesWidth = 15);
+	BurrsPainter halconActionTaichi(int limit, int grayMin, int width, int height, const HBYTE* image);
 private:
 	// Local iconic variables
 	HObject  ho_Image, ho_R, ho_G, ho_B, ho_ROI, ho_ImageReduce;
@@ -38,8 +39,8 @@ private:
 	HTuple  hv_AvgCount, hv_baseColumn, hv_Index, hv_RowEdge;
 	HTuple  hv_ColumnEdge, hv_Amplitude, hv_Distance, hv_RowEdgeR;
 	HTuple  hv_ColumnEdgeR, hv_AvgWidth;
-	BurrsPainter action(bool v2h, int limit, int grayMin, int grayMax, int width, int height, unsigned char* image, int polesWidth = 15);
-	BurrsPainter actionTaichi(int limit, int grayMin, int w, int h, unsigned char* image);
+	BurrsPainter action(bool v2h, int limit, int grayMin, int grayMax, int width, int height, const byte* imag, int polesWidth = 15);
+	BurrsPainter actionTaichi(int limit, int grayMin, int w, int h, const HBYTE* image);
 	int m_TaichiNormal = 0;
 	int m_TaichiAlert = 0;
 	//×ÝÏò

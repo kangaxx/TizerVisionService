@@ -107,12 +107,13 @@ void MainForm::buttonClicked (juce::Button* buttonThatWasClicked)
     {
         //[UserButtonCode_btnRun] -- add your button handler code here..
         //e.x 运行taichi 算法
-        HMODULE lib = LoadLibrary(LPCTSTR(L"HalconBurrTaichi.dll"));
+
+        HMODULE *lib = (HMODULE*)(LoadLibrary(LPCTSTR(L"HalconBurrTaichi.dll")));
 
         halconFunc hFunc = NULL;
         if (lib == 0)
             return;
-        hFunc = (halconFunc)GetProcAddress(lib, "halconAction");
+        hFunc = (halconFunc)GetProcAddress(*lib, "halconAction");
         char* source[7];
         //设置输入参数
         int burr_limit = 15;
@@ -135,7 +136,9 @@ void MainForm::buttonClicked (juce::Button* buttonThatWasClicked)
         *out = &buffer[0];
         hFunc(6, out, source);
         if (lib > 0)
-            FreeLibrary(lib);
+            FreeLibrary(*lib);
+            
+
         //[/UserButtonCode_btnRun]
     }
 

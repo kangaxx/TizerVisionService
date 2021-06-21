@@ -5,6 +5,7 @@
 #include "framework.h"
 #include "resource.h"
 #include "TizerVisionService_i.h"
+#include "HalconCpp.h"
 
 #include <iostream>
 #include <UserEnv.h>
@@ -27,11 +28,16 @@ using namespace ATL;
 
 #ifdef PYLON_WIN_BUILD
 #    include <pylon/PylonGUI.h>
+
+// Include file to use pylon universal instant camera parameters.
+#	include <pylon/BaslerUniversalInstantCamera.h>
 #endif
+
+#include "DataCounter.h"
 
 using namespace commonfunction_c;
 using namespace Pylon;
-
+using namespace extensionfunction_c;
 #define SERVICE_CONTROL_CUSTOM_MESSAGE 0x0085
 
 HANDLE ZmqServer::hMutex = CreateMutexW(NULL, FALSE, NULL);
@@ -155,7 +161,7 @@ void CTizerVisionServiceModule::Handler(DWORD dwOpcode) throw()
 
 	TCHAR szBuffer[64] = { 0 };//定义并申请输入缓冲区空间
 	BaseFunctions::DWORD2WinLog(dwOpcode, szBuffer);
-	LogEvent(szBuffer);
+	//LogEvent(szBuffer);
 
 	switch (dwOpcode)
 	{
@@ -217,7 +223,7 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 			ResumeThread(ZmqServer::m_hThread);
 		}
 		/*************************************************          end        *********************************************************/
-		/* begin 不连相机调试时启用一下代码 */
+		/* begin 不连相机调试时启用一下代码 
 		//纵向和侧面各做一次
 		bool actionType = true;
 		while (true) {
@@ -226,17 +232,20 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 			char msg[INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE] = { '\0' };
 			BurrsPainter burrInfo;
 			//if (actionType)
-			//burrInfo = hw->halconActionTaichi(0, 200, 0, 0, NULL);
+			burrInfo = hw->halconActionTaichi(0, 200, 0, 0, NULL);
 			//else
-			burrInfo = hw->halconAction(1, 90, 255, 0, 0, NULL);
+			//burrInfo = hw->halconAction(1, 90, 255, 0, 0, NULL);
 			actionType = !actionType;
 			char** p = new char* ();
 			*p = &msg[0];
 			SerializationFactory::Serialize((SerializationOjbect*)&burrInfo, p);
 
+			DataCounter *dc = &(DataCounter::getInstance());
 			//zmq_send(responder, msg, INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE, 0);
+			dc->write(&burrInfo);
 
 			BurrsInfoString burrString(msg);
+
 			LogEvent(LPCTSTR(msg));
 			burrsInfoList.insertElement(burrString, 0);
 			Sleep(3);
@@ -244,13 +253,36 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 			p = 0;
 			ReleaseMutex(ZmqServer::hMutex);
 		}
-		/* end 不连相机调试时启用的代码  */
+		end 不连相机调试时启用的代码  */
 
+
+		/*  单独调试背光taichi相机，需要指定曝光数，一旦启用次程序将会持续while循环在taichi相机上 		
+		PylonAutoInitTerm autoInitTerm;
+		CTlFactory& tlFactory = CTlFactory::GetInstance();
+		CBaslerUniversalInstantCamera cameraTaichi(CTlFactory::GetInstance().CreateDevice(CDeviceInfo().SetFriendlyName("taichi (23528975)")));
+		// Register the standard configuration event handler for enabling software triggering.
+		// The software trigger configuration handler replaces the default configuration
+		// as all currently registered configuration handlers are removed by setting the registration mode to RegistrationMode_ReplaceAll.
+		cameraTaichi.RegisterConfiguration(new CSoftwareTriggerConfiguration, RegistrationMode_ReplaceAll, Cleanup_Delete);
+
+		// For demonstration purposes only, add sample configuration event handlers to print out information
+		// about camera use and image grabbing.
+		cameraTaichi.RegisterConfiguration(new CConfigurationEventPrinter, RegistrationMode_Append, Cleanup_Delete); // Camera use.
+
+		// For demonstration purposes only, register another image event handler.
+		cameraTaichi.RegisterImageEventHandler(new CSampleImageEventHandler, RegistrationMode_Append, Cleanup_Delete);
+
+		// Camera event processing must be activated first, the default is off.
+		cameraTaichi.GrabCameraEvents = true;
+		/*  单独调试背光taichi相机，需要指定曝光数 end  */
+
+		// Get the transport layer factory.
+
+		
+		// Get all attached devices and exit application if no device is found.
 		PylonAutoInitTerm autoInitTerm;
 		// Get the transport layer factory.
 		CTlFactory& tlFactory = CTlFactory::GetInstance();
-
-		// Get all attached devices and exit application if no device is found.
 		IGigETransportLayer* pTl = dynamic_cast<IGigETransportLayer*>(tlFactory.CreateTl(Pylon::BaslerGigEDeviceClass));
 		if (pTl == NULL)
 		{
@@ -260,20 +292,27 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 		// Enumerate devices.
 		DeviceInfoList_t devices;
 		pTl->EnumerateAllDevices(devices);
+		bool isTaichi = false;
 		while (true)
 		{
 			char buffer[100] = { '\0' };
 			CInstantCameraArray cameras(min(devices.size(), 5));
-
 			// Create and attach all Pylon Devices.
 			for (size_t i = 0; i < cameras.GetSize(); ++i)
 			{
 				cameras[i].Attach(tlFactory.CreateDevice(devices[i]));
-				LogEvent(BaseFunctions::s2ws(cameras[i].GetDeviceInfo().GetDeviceID().c_str()).c_str());
+				string value = cameras[i].GetDeviceInfo().GetFriendlyName();
+				if (value._Equal("taichi (23528975)")) {
+					isTaichi = true;
+					//cameras[i].ExposureTimeAbs.SetValue(1000);
+				}
+				else {
+					isTaichi = false;
+				}
 
 				cameras[i].MaxNumBuffer = 5;
 				cameras[i].StartGrabbing(1);
-
+				
 				// This smart pointer will receive the grab result data.
 				unsigned char* imgPtr;
 				/*
@@ -290,7 +329,6 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 							pImageBuffer2 = (uint8_t*)ptrGrabResult2->GetBuffer();
 							imgPtr2 = (unsigned char*)pImageBuffer2;
 							char msg[INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE] = { '\0' };
-
 							BurrsPainter bp = hw->halconAction(90, 255, ptrGrabResult2->GetWidth(), ptrGrabResult2->GetHeight(), imgPtr2);
 						}
 					}
@@ -298,26 +336,30 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 				*/
 
 				//list cameras grab
+				Logger l("d:");
 				while (cameras[i].IsGrabbing())
 				{
 					CGrabResultPtr ptrGrabResult;
 					cameras[i].RetrieveResult(5000, ptrGrabResult, TimeoutHandling_ThrowException);
 					if (ptrGrabResult->GrabSucceeded())
 					{
-						const uint8_t* pImageBuffer;
-						unsigned char* imgPtr;
-						pImageBuffer = (uint8_t*)ptrGrabResult->GetBuffer();
-						imgPtr = (unsigned char*)pImageBuffer;
+						const HBYTE* pImageBuffer;
+						pImageBuffer = (HBYTE*)ptrGrabResult->GetBuffer();
+
+
 						char msg[INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE] = { '\0' };
 						BurrsPainter bp;
-
-						if (i == 1)
+						if (isTaichi)
 						{
-							bp = hw->halconActionTaichi(5, 20, ptrGrabResult->GetWidth(), ptrGrabResult->GetHeight(), imgPtr);
+							//CImagePersistence::Save(ImageFileFormat_Jpeg, "d:/grabs/pylon_image.jpg", ptrGrabResult);
+							bp = hw->halconActionTaichi(2, 220, ptrGrabResult->GetWidth(), ptrGrabResult->GetHeight(), pImageBuffer);
+							DataCounter* dc = &(DataCounter::getInstance());
+							//zmq_send(responder, msg, INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE, 0);
+							dc->write(&bp);
 						}
 						else
 						{
-							bp = hw->halconAction(5, 90, 255, ptrGrabResult->GetWidth(), ptrGrabResult->GetHeight(), imgPtr);
+							//bp = hw->halconAction(5, 90, 255, ptrGrabResult->GetWidth(), ptrGrabResult->GetHeight(), pImageBuffer);
 						}
 						BurrsPainter* tmp = &bp;
 						char** p = new char* ();
@@ -326,7 +368,7 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 
 						//LogEvent(BaseFunctions::s2ws(BaseFunctions::f2str(bp.getDistance(0))).c_str());
 						delete p;
-						p = 0;
+						p = 0; 
 					}
 					else
 					{
@@ -361,7 +403,7 @@ HRESULT CTizerVisionServiceModule::PreMessageLoop(int nShowCmd) throw()
 	//让服务允许暂停和继续操作  
 	char value[10];
 	BaseFunctions::Int2Chars(nShowCmd, value);
-	LogEvent(LPCTSTR(value));
+	//LogEvent(LPCTSTR(value));
 	m_status.dwControlsAccepted = m_status.dwControlsAccepted | SERVICE_ACCEPT_PAUSE_CONTINUE;
 
 	HRESULT hr = __super::PreMessageLoop(nShowCmd);

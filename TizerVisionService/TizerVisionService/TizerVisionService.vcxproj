@@ -74,8 +74,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\basler\Development\include;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(ZMQ_ROOT);$(IncludePath)</IncludePath>
-    <LibraryPath>D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);$(ZMQ_ROOT);$(LibraryPath)</LibraryPath>
+    <IncludePath>D:\basler\Development\include;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(ZMQ_ROOT);D:\boost_1_76_0;C:\Program Files\MySQL\MySQL Server 8.0\include;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);$(ZMQ_ROOT);D:\boost_1_76_0\libs;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
@@ -143,9 +143,10 @@
     </ResourceCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <RegisterOutput>true</RegisterOutput>
-      <AdditionalLibraryDirectories>D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libzmq-v141-mt-4_3_2.lib;halconcpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <RegisterOutput>false</RegisterOutput>
+      <AdditionalLibraryDirectories>D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);C:\Program Files\MySQL\MySQL Server 8.0\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libzmq-v141-mt-4_3_2.lib;halconcpp.lib;libmysql.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <PerUserRedirection>false</PerUserRedirection>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -219,8 +220,11 @@
     <ClInclude Include="..\..\..\hds\commonplug_global.h" />
     <ClInclude Include="..\..\..\hds\FastDelegate.h" />
     <ClInclude Include="..\..\..\hds\Fixed2WayList.h" />
+    <ClInclude Include="..\..\..\hds\JsonHelper.h" />
+    <ClInclude Include="..\..\..\hds\Logger.h" />
     <ClInclude Include="..\..\..\hds\serialization_c11.h" />
     <ClInclude Include="BurrsInfoString.h" />
+    <ClInclude Include="DataCounter.h" />
     <ClInclude Include="find_burrs_finally.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />

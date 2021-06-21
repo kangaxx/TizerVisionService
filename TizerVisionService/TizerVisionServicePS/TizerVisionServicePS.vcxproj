@@ -159,6 +159,7 @@ Exit 1
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="..\TizerVisionService\TizerVisionServiceps.def" />
+    <None Include="SQLScript.sql" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\TizerVisionService\dlldata.c">

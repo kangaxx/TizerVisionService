@@ -15,17 +15,19 @@
 
 
 #include "find_burrs_finally.h"
+#include "../../../hds/Logger.h"
 #include "stdio.h"
-
+//#define FLAG_TEST_BY_LOCAL_FILE 0 //使用本地文件调试算法现场工作时请屏蔽该宏
 
 using namespace HalconCpp;
+using namespace commonfunction_c;
 
 // Chapter: Develop
 // Short Description: Switch dev_update_pc, dev_update_var and dev_update_window to 'off'. 
 void dev_update_off();
 // Local procedures 
 void caculator_centor();
-
+static int g_SaveTaichiNum = 0;
 
 
 // Chapter: Develop
@@ -53,11 +55,14 @@ void caculator_centor()
 #ifndef NO_EXPORT_MAIN
 // Main procedure 
 
-BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, unsigned char* image)
+BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, const HBYTE* image)
 {
+	Logger l("d:");
+	l.Log("do action taichi");
 	HObject Image;
 	BurrsPainter result;
 	result.setType(TYPE_BURRS_IMAGE_ERROR_NO_IMAGE); //刚开始没有图
+	l.Log("do action taichi 001");
 	try {
 		int distance = 0;
 		hv_threshold_gray_min = grayMin;
@@ -69,12 +74,20 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, un
 		//比例尺, 40*1.1镜头是0.76， 该镜头加两个环是0.728624
 		hv_zoom_scale = 0.7286;
 		//基本功能测试用硬盘文件即可
+#ifdef FLAG_TEST_BY_LOCAL_FILE
+		/*  硬盘文件调试代码  */
 
-		//GenImage1Extern(&ho_Image, "byte", w, h, (Hlong)image, NULL); //由相机传入
+		l.Log("do action taichi 002");
+		//ReadImage(&ho_Image, "d:/images/22_1.bmp");
+
+		//result.setFileName("d:/images/22_1.bmp");
 		/*  硬盘文件调试代码  */
-		ReadImage(&ho_Image, "d:/images/22_1.bmp");
-		result.setFileName("d:/images/22_1.bmp");
-		/*  硬盘文件调试代码  */
+#else
+		l.Log("do action taichi 002");
+		GenImage1(&ho_Image, "byte", w, h, (Hlong)image); //由相机传入
+		l.Log("do action taichi 003");
+#endif // FLAG_TEST_BY_LOCAL_FILE
+		//test temporary
 
 		ho_R = ho_Image;
 		GetImageSize(ho_R, &hv_Width, &hv_Height);
@@ -239,8 +252,19 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, un
 		result.setFileTime(stime.c_str());
 		HImage imageForWrite = ho_BinImage;
 		//HImage imageForWrite = ho_Image;
-		imageForWrite = imageForWrite.ZoomImageFactor(0.5, 0.5, "bilinear");
-		imageForWrite.WriteImage("jpg", 0, fileName.c_str());
+
+		if (result.getDistance(0) > 5.0) {
+			imageForWrite = imageForWrite.ZoomImageFactor(0.5, 0.5, "bilinear");
+			imageForWrite.WriteImage("jpg", 0, fileName.c_str());
+		}
+		else {
+			g_SaveTaichiNum++;
+			if (g_SaveTaichiNum % 10000 == 0) {
+				imageForWrite = imageForWrite.ZoomImageFactor(0.5, 0.5, "bilinear");
+				imageForWrite.WriteImage("jpg", 0, fileName.c_str());
+				g_SaveTaichiNum = 0;
+			}
+		}
 		Hlong zoomWidth, zoomHeight;
 		imageForWrite.GetImageSize(&zoomWidth, &zoomHeight);
 		result.setSaveImageWidth(zoomWidth);
@@ -281,7 +305,7 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, un
 
 
 
-BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax, int w, int h, unsigned char* image, int polesWidth)
+BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax, int w, int h, const byte* image, int polesWidth)
 {
 	BurrsPainter result;
 	result.setType(TYPE_BURRS_IMAGE_ERROR_NO_IMAGE); //刚开始没有图
@@ -298,12 +322,15 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 		hv_burrs_direction = INT_BURRS_DIRECTION_HORIZ;
 		//比例尺, 40*1.1镜头是0.76， 该镜头加两个环是0.728624
 		hv_zoom_scale = 0.7286;
-		//GenImage1Extern(&ho_Image, "byte", w, h, (Hlong)image, NULL);
+		/*  硬盘文件调试代码  */
+#ifdef FLAG_TEST_BY_LOCAL_FILE
 		/*  硬盘文件调试代码  */
 		ReadImage(&ho_Image, "d:/images/21_1.bmp");
 		result.setFileName("d:/images/21_1.bmp");
 		/*  硬盘文件调试代码  */
-
+#else
+		GenImage1Extern(&ho_Image, "byte", w, h, (Hlong)image, NULL); //由相机传入
+#endif // FLAG_TEST_BY_LOCAL_FILE
 		if (v2h) {
 			ho_Image = imageVertToHoriz(ho_Image);
 			hv_zoom_scale = hv_zoom_scale * 20.0 / 24.0;
@@ -596,7 +623,7 @@ float halconWorker::adjustDis(int& value, float zoom, bool doAdjust)
 
 #ifndef NO_EXPORT_APP_MAIN
 
-BurrsPainter halconWorker::halconAction(int limit, int grayMin, int grayMax, int width, int height, unsigned char* image, int polesWidth)
+BurrsPainter halconWorker::halconAction(int limit, int grayMin, int grayMax, int width, int height, const byte* image, int polesWidth)
 {
     BurrsPainter result;
     result.setBurrsNum(0);
@@ -628,7 +655,7 @@ BurrsPainter halconWorker::halconAction(int limit, int grayMin, int grayMax, int
     return result;
 }
 
-BurrsPainter halconWorker::halconActionTaichi(int limit, int grayMin, int width, int height, unsigned char* image)
+BurrsPainter halconWorker::halconActionTaichi(int limit, int grayMin, int width, int height, const HBYTE* image)
 {
 	BurrsPainter result;
 	result.setBurrsNum(0);
@@ -644,9 +671,7 @@ BurrsPainter halconWorker::halconActionTaichi(int limit, int grayMin, int width,
 
 		// Default settings used in HDevelop (can be omitted)
 
-
 		return actionTaichi(limit, grayMin, width, height, image);
-
 	}
 	catch (HException& exception)
 	{
@@ -655,7 +680,13 @@ BurrsPainter halconWorker::halconActionTaichi(int limit, int grayMin, int width,
 				exception.ProcName().TextA(),
 				exception.ErrorMessage().TextA());
 		*/
-
+		FILE* fp;
+		fopen_s(&fp, "c:/tizer/error.txt", "w");
+		if (fp)
+		{
+			fprintf(fp, "error in defect find burrs thread \n");
+			fclose(fp);
+		}
 	}
 	return result;
 }
