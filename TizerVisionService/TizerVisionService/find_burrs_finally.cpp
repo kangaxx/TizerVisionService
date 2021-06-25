@@ -57,12 +57,9 @@ void caculator_centor()
 
 BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, const HBYTE* image)
 {
-	Logger l("d:");
-	l.Log("do action taichi");
 	HObject Image;
 	BurrsPainter result;
 	result.setType(TYPE_BURRS_IMAGE_ERROR_NO_IMAGE); //刚开始没有图
-	l.Log("do action taichi 001");
 	try {
 		int distance = 0;
 		hv_threshold_gray_min = grayMin;
@@ -76,16 +73,12 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, co
 		//基本功能测试用硬盘文件即可
 #ifdef FLAG_TEST_BY_LOCAL_FILE
 		/*  硬盘文件调试代码  */
-
-		l.Log("do action taichi 002");
 		//ReadImage(&ho_Image, "d:/images/22_1.bmp");
 
 		//result.setFileName("d:/images/22_1.bmp");
 		/*  硬盘文件调试代码  */
 #else
-		l.Log("do action taichi 002");
 		GenImage1(&ho_Image, "byte", w, h, (Hlong)image); //由相机传入
-		l.Log("do action taichi 003");
 #endif // FLAG_TEST_BY_LOCAL_FILE
 		//test temporary
 
@@ -305,7 +298,7 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, co
 
 
 
-BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax, int w, int h, const byte* image, int polesWidth)
+BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax, int w, int h, const HBYTE* image, int polesWidth)
 {
 	BurrsPainter result;
 	result.setType(TYPE_BURRS_IMAGE_ERROR_NO_IMAGE); //刚开始没有图
@@ -623,7 +616,7 @@ float halconWorker::adjustDis(int& value, float zoom, bool doAdjust)
 
 #ifndef NO_EXPORT_APP_MAIN
 
-BurrsPainter halconWorker::halconAction(int limit, int grayMin, int grayMax, int width, int height, const byte* image, int polesWidth)
+BurrsPainter halconWorker::halconAction(int limit, int grayMin, int grayMax, int width, int height, const HBYTE* image, int polesWidth)
 {
     BurrsPainter result;
     result.setBurrsNum(0);
@@ -668,9 +661,7 @@ BurrsPainter halconWorker::halconActionTaichi(int limit, int grayMin, int width,
 		// file was stored with local-8-bit encoding
 		//   -> set the interface encoding accordingly
 		SetHcppInterfaceStringEncodingIsUtf8(false);
-
 		// Default settings used in HDevelop (can be omitted)
-
 		return actionTaichi(limit, grayMin, width, height, image);
 	}
 	catch (HException& exception)

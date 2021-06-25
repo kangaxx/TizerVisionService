@@ -295,88 +295,96 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 		bool isTaichi = false;
 		while (true)
 		{
-			char buffer[100] = { '\0' };
-			CInstantCameraArray cameras(min(devices.size(), 5));
-			// Create and attach all Pylon Devices.
-			for (size_t i = 0; i < cameras.GetSize(); ++i)
-			{
-				cameras[i].Attach(tlFactory.CreateDevice(devices[i]));
-				string value = cameras[i].GetDeviceInfo().GetFriendlyName();
-				if (value._Equal("taichi (23528975)")) {
-					isTaichi = true;
-					//cameras[i].ExposureTimeAbs.SetValue(1000);
-				}
-				else {
-					isTaichi = false;
-				}
+			try {
+				char buffer[100] = { '\0' };
+				CInstantCameraArray cameras(min(devices.size(), 5));
+				// Create and attach all Pylon Devices.
+				for (size_t i = 0; i < cameras.GetSize(); ++i)
+				{
+					cameras[i].Attach(tlFactory.CreateDevice(devices[i]));
+					string value = cameras[i].GetDeviceInfo().GetFriendlyName();
+					if (value._Equal("taichi (23528975)")) {
+						isTaichi = true;
+						//cameras[i].ExposureTimeAbs.SetValue(1000);
+					}
+					else {
+						isTaichi = false;
+					}
 
-				cameras[i].MaxNumBuffer = 5;
-				cameras[i].StartGrabbing(1);
-				
-				// This smart pointer will receive the grab result data.
-				unsigned char* imgPtr;
-				/*
-				if (cameras.GetSize() > 1) {
-					cameras[1].MaxNumBuffer = 5;
-					cameras[1].StartGrabbing(1);
-					while (cameras[1].IsGrabbing()) {
-						CGrabResultPtr ptrGrabResult2;
-						cameras[1].RetrieveResult(5000, ptrGrabResult2, TimeoutHandling_ThrowException);
-						if (ptrGrabResult2->GrabSucceeded())
-						{
-							const uint8_t* pImageBuffer2;
-							unsigned char* imgPtr2;
-							pImageBuffer2 = (uint8_t*)ptrGrabResult2->GetBuffer();
-							imgPtr2 = (unsigned char*)pImageBuffer2;
-							char msg[INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE] = { '\0' };
-							BurrsPainter bp = hw->halconAction(90, 255, ptrGrabResult2->GetWidth(), ptrGrabResult2->GetHeight(), imgPtr2);
+					cameras[i].MaxNumBuffer = 5;
+					cameras[i].StartGrabbing(1);
+
+					// This smart pointer will receive the grab result data.
+					unsigned char* imgPtr;
+					/*
+					if (cameras.GetSize() > 1) {
+						cameras[1].MaxNumBuffer = 5;
+						cameras[1].StartGrabbing(1);
+						while (cameras[1].IsGrabbing()) {
+							CGrabResultPtr ptrGrabResult2;
+							cameras[1].RetrieveResult(5000, ptrGrabResult2, TimeoutHandling_ThrowException);
+							if (ptrGrabResult2->GrabSucceeded())
+							{
+								const uint8_t* pImageBuffer2;
+								unsigned char* imgPtr2;
+								pImageBuffer2 = (uint8_t*)ptrGrabResult2->GetBuffer();
+								imgPtr2 = (unsigned char*)pImageBuffer2;
+								char msg[INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE] = { '\0' };
+								BurrsPainter bp = hw->halconAction(90, 255, ptrGrabResult2->GetWidth(), ptrGrabResult2->GetHeight(), imgPtr2);
+							}
 						}
 					}
-				}
-				*/
+					*/
 
-				//list cameras grab
-				Logger l("d:");
-				while (cameras[i].IsGrabbing())
-				{
-					CGrabResultPtr ptrGrabResult;
-					cameras[i].RetrieveResult(5000, ptrGrabResult, TimeoutHandling_ThrowException);
-					if (ptrGrabResult->GrabSucceeded())
+					//list cameras grab
+					Logger l("d:");
+					while (cameras[i].IsGrabbing())
 					{
-						const HBYTE* pImageBuffer;
-						pImageBuffer = (HBYTE*)ptrGrabResult->GetBuffer();
-
-
-						char msg[INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE] = { '\0' };
-						BurrsPainter bp;
-						if (isTaichi)
+						CGrabResultPtr ptrGrabResult;
+						cameras[i].RetrieveResult(5000, ptrGrabResult, TimeoutHandling_ThrowException);
+						if (ptrGrabResult->GrabSucceeded())
 						{
-							//CImagePersistence::Save(ImageFileFormat_Jpeg, "d:/grabs/pylon_image.jpg", ptrGrabResult);
-							bp = hw->halconActionTaichi(2, 220, ptrGrabResult->GetWidth(), ptrGrabResult->GetHeight(), pImageBuffer);
+							const HBYTE* pImageBuffer;
+							pImageBuffer = (HBYTE*)ptrGrabResult->GetBuffer();
+
+
+							char msg[INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE] = { '\0' };
+							BurrsPainter bp;
 							DataCounter* dc = &(DataCounter::getInstance());
-							//zmq_send(responder, msg, INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE, 0);
-							dc->write(&bp);
+							if (isTaichi)
+							{
+								//CImagePersistence::Save(ImageFileFormat_Jpeg, "d:/grabs/pylon_image.jpg", ptrGrabResult);
+								bp = hw->halconActionTaichi(2, 220, ptrGrabResult->GetWidth(), ptrGrabResult->GetHeight(), pImageBuffer);
+								//zmq_send(responder, msg, INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE, 0);
+								dc->write(&bp, i, "taichi");
+							}
+							else
+							{
+								bp = hw->halconAction(5, 90, 255, ptrGrabResult->GetWidth(), ptrGrabResult->GetHeight(), pImageBuffer);
+								dc->write(&bp, i, "Longitudinal");
+							}
+
+							BurrsPainter* tmp = &bp;
+							char** p = new char* ();
+							*p = &msg[0];
+							SerializationFactory::Serialize((SerializationOjbect*)tmp, p);
+
+							//LogEvent(BaseFunctions::s2ws(BaseFunctions::f2str(bp.getDistance(0))).c_str());
+							delete p;
+							p = 0;
 						}
 						else
 						{
-							//bp = hw->halconAction(5, 90, 255, ptrGrabResult->GetWidth(), ptrGrabResult->GetHeight(), pImageBuffer);
+							//cout << "Error: " << ptrGrabResult->GetErrorCode() << " " << ptrGrabResult->GetErrorDescription() << endl;
 						}
-						BurrsPainter* tmp = &bp;
-						char** p = new char* ();
-						*p = &msg[0];
-						SerializationFactory::Serialize((SerializationOjbect*)tmp, p);
-
-						//LogEvent(BaseFunctions::s2ws(BaseFunctions::f2str(bp.getDistance(0))).c_str());
-						delete p;
-						p = 0; 
-					}
-					else
-					{
-						//cout << "Error: " << ptrGrabResult->GetErrorCode() << " " << ptrGrabResult->GetErrorDescription() << endl;
 					}
 				}
 			}
+			catch (...) {
+				//do nothing yet
+			}
 		}
+
 	}
 	catch (const GenericException& e)
 	{
