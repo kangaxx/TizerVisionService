@@ -11,7 +11,7 @@ using namespace std;
 using namespace HalconCpp; 
 using namespace serialization_c11;
 
-//预设图片保存数量
+//棰勮鍥剧墖淇濆瓨鏁伴噺
 #define INT_NORMAL_IMAGE_MAX_COUNT 10000
 #define INT_ALERT_IMAGE_MAX_COUNT 10000
 
@@ -43,10 +43,10 @@ private:
 	BurrsPainter actionTaichi(int limit, int grayMin, int w, int h, const HBYTE* image);
 	int m_TaichiNormal = 0;
 	int m_TaichiAlert = 0;
-	//纵向
+	//绾靛悜
 	int m_LongitudinalNormal = 0;
 	int m_LongitudinalAlert = 0;
-	//拍摄到的图像如果是横向的，需要先专成纵向，才能供后续算法处理
+	//鎷嶆憚鍒扮殑鍥惧儚濡傛灉鏄í鍚戠殑锛岄渶瑕佸厛涓撴垚绾靛悜锛屾墠鑳戒緵鍚庣画绠楁硶澶勭悊
 	HImage imageVertToHoriz(const HImage source, int angle = 90);
 	float adjustDis(int& value, float zoom, bool doAdjust = true);
 	

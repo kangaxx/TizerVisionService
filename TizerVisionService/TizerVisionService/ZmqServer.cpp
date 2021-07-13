@@ -11,9 +11,9 @@ using namespace commonfunction_c;
 DWORD __stdcall ZmqServer::ThreadProc(PVOID pParam)
 {
     Fixed2WayList<BurrsInfoString>* burrsInfoList = (Fixed2WayList<BurrsInfoString>*) pParam;
-    //后台服务在此持续运行
-    //需要将数据写入
-    //监测tcp端口5555，获取信号数据
+    //锟斤拷台锟斤拷锟斤拷锟节此筹拷锟斤拷锟斤拷锟斤拷
+    //锟斤拷要锟斤拷锟斤拷锟斤拷写锟斤拷
+    //锟斤拷锟絫cp锟剿匡拷5555锟斤拷锟斤拷取锟脚猴拷锟斤拷锟斤拷
     void* context = zmq_ctx_new();
     void* responder = zmq_socket(context, ZMQ_REP);
     int rc = zmq_bind(responder, "tcp://*:5555");

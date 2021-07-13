@@ -11,54 +11,54 @@ using namespace std;
 using namespace HalconCpp;
 using namespace serialization_c11;
 
-//Ô¤ÉèÍ¼Æ¬±£´æÊýÁ¿
+//Ô¤ï¿½ï¿½Í¼Æ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 #define INT_NORMAL_IMAGE_MAX_COUNT 10000
 #define INT_ALERT_IMAGE_MAX_COUNT 10000
 
 char** halconAction(int argc, char** out, char* in[])
 {
     HObject Image;
-    ((halconUtils::HalconBurrResult*)*out)->setType(TYPE_BURRS_IMAGE_ERROR_NO_IMAGE); //¸Õ¿ªÊ¼Ã»ÓÐÍ¼
-    //½âÎöÊäÈë²ÎÊý
+    ((halconUtils::HalconBurrResult*)*out)->setType(TYPE_BURRS_IMAGE_ERROR_NO_IMAGE); //ï¿½Õ¿ï¿½Ê¼Ã»ï¿½ï¿½Í¼
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     //int limit, int grayMin, int grayMax, int width, int height, unsigned char* image, int polesWidth = 15
-    int* burr_limit = (int*)in[0]; //Ã«´ÌÔ¤¾¯³¤¶È
+    int* burr_limit = (int*)in[0]; //Ã«ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     int* grayMin = (int*)in[1];
     int* grayMax = (int*)in[2];
     int* width = (int*)in[3];
     int* height = (int*)in[4];
     unsigned char* image = (unsigned char*)in[5];
     int* polesWidth = (int*)in[6];
-    //Éè¶¨»ù±¾²ÎÊý
+    //ï¿½è¶¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     int distance = 0;
     int select_region_min = 14200;
-    //Ã«´Ì·½Ïò£¬ 0 , horizontal(horiz) ºáÏòÈ«²¿ 1, vertical(vert) ×ÝÏòÈ«²¿
+    //Ã«ï¿½Ì·ï¿½ï¿½ï¿½ 0 , horizontal(horiz) ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ 1, vertical(vert) ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½
     int hv_burrs_direction = INT_BURRS_DIRECTION_HORIZ;
-    //±ÈÀý³ß, 40*1.1¾µÍ·ÊÇ0.76£¬ ¸Ã¾µÍ·¼ÓÁ½¸ö»·ÊÇ0.728624
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, 40*1.1ï¿½ï¿½Í·ï¿½ï¿½0.76ï¿½ï¿½ ï¿½Ã¾ï¿½Í·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0.728624
     float hv_zoom_scale = 0.7286;
     double minShape = 14200.0;
     double maxShape = 2500.0 * 2000.0;
     HImage readedImage, ROI, dealedImage;
     try {
-        //¶ÁÈ¡Í¼Ïñ
+        //ï¿½ï¿½È¡Í¼ï¿½ï¿½
         readImage(readedImage, image, width, height);
-        //Éè¶¨ROIÇøÓò
+        //ï¿½è¶¨ROIï¿½ï¿½ï¿½ï¿½
         ROI = reduceImage(readedImage);
-        //´¦ÀíÍ¼Ïñ
+        //ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½
         dealedImage = dealImage(ROI, *grayMin, *grayMax, minShape, maxShape);
         
-        //½«´¦ÀíºóµÄÍ¼ÏñÌí¼Óµ½·µ»ØÐÅÏ¢
+        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
         ((halconUtils::HalconBurrResult*)*out)->setImage(dealedImage);
-        //measure ¶þÎ¬Ëã·¨
+        //measure ï¿½ï¿½Î¬ï¿½ã·¨
         doMeasured(ROI);
-        //Í¼ÐÎËã·¨
+        //Í¼ï¿½ï¿½ï¿½ã·¨
 
-        //·µ»Ø¼ÆËã»ú½á¹û
+        //ï¿½ï¿½ï¿½Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         return out;
     }
     catch (HException& exp) {
         try {
             if (image != 0 && width != 0 && height != 0) {
-                //ÕÕÏà»úÄ£Ê½ÏÂÓöµ½Òì³£ÐèÒª³¢ÊÔ±£´æÍ¼Ïñ
+                //ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ì³£ï¿½ï¿½Òªï¿½ï¿½ï¿½Ô±ï¿½ï¿½ï¿½Í¼ï¿½ï¿½
                 GenImage1Extern(&readedImage, "byte", *width, *height, (Hlong)image, NULL);
                 g_normalTaichi++;
                 if (g_normalTaichi > INT_NORMAL_IMAGE_MAX_COUNT) {
@@ -89,13 +89,13 @@ char** halconAction(int argc, char** out, char* in[])
 }
 
 void readImage(HImage &ho_Image, unsigned char *image, int *width, int *height) {
-    //ÓÉÏà»ú´«Èë
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     GenImage1Extern(&ho_Image, "byte", *width, *height, (Hlong)image, NULL); 
 
-    /*      Ó²ÅÌÎÄ¼þµ÷ÊÔ´úÂë
+    /*      Ó²ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½
     ReadImage(&ho_Image, "d:/images/12_1.bmp");
     ((BurrsPainter*)*out)->setFileName("d:/images/12_1.bmp");
-    µ÷ÊÔ´úÂë end      */
+    ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ end      */
     return;
 }
 
@@ -108,16 +108,16 @@ HImage dealImage(HalconCpp::HImage& image, int minGray, int maxGray, double minS
 
     //emphasize (ImageReduce, ImageEmphasize, Width, Height, 1.5)
     //mean_image (ImageReduce, Mean, 25, 25)
-    //Æ½»¬´¦ÀíÍ¼Ïñ
+    //Æ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½
     //gray_opening_rect (Mean, ImageOpening, 2, 2)
     image = image.GrayClosingRect(15, 2);
-    //ÑÇÏñËØ±ß½ç
+    //ï¿½ï¿½ï¿½ï¿½ï¿½Ø±ß½ï¿½
     //edges_sub_pix (Image, Edges, 'lanser2', 0.5, 8, 50)
 
     //dyn_threshold (ImageClosing, Mean, RegionsDyn, 3, 'light')
     HRegion regions;
     regions = image.Threshold(minGray, maxGray);
-    //¼ÆËã¼«Æ¬ÇãÐ±¶È
+    //ï¿½ï¿½ï¿½ã¼«Æ¬ï¿½ï¿½Ð±ï¿½ï¿½
     regions = regions.Connection();
     regions = regions.SelectShape("area", "and", 155, 999);
     double row, column, anglePhi, angleL1, angleL2;
@@ -132,7 +132,7 @@ HImage dealImage(HalconCpp::HImage& image, int minGray, int maxGray, double minS
     }
     imageBin = imageBin.RotateImage(rotateAngle, "constant");
 
-    //Í¼Æ¬Ñ¡×°ºó»áÓÐºÚ±ß£¬ÁíÍâÑ¡ÖÐÇøÓòÏÖÔÚÊÇ°×É«£¬ÐèÒªÈ¥±ß²¢ÇÒ×ö¸ºÆ¬ÔËËã
+    //Í¼Æ¬Ñ¡×°ï¿½ï¿½ï¿½ï¿½ÐºÚ±ß£ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½É«ï¿½ï¿½ï¿½ï¿½ÒªÈ¥ï¿½ß²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¬ï¿½ï¿½ï¿½ï¿½
     HRegion regionRotate = imageBin.Threshold(128, 255);
     imageBin = regionRotate.RegionToBin(0, 255, hv_Width, hv_Height);
 
@@ -143,7 +143,7 @@ HImage dealImage(HalconCpp::HImage& image, int minGray, int maxGray, double minS
 
 HalconCpp::HImage reduceImage(HalconCpp::HImage& ho_Image)
 {
-    //part 1 Ñ°ÕÒ¼«Æ¬ÇøÓò
+    //part 1 Ñ°ï¿½Ò¼ï¿½Æ¬ï¿½ï¿½ï¿½ï¿½
     HObject ho_ROI;
     Hlong width, height;
     ho_Image.GetImageSize(&width, &height);
@@ -155,24 +155,24 @@ void doMeasured(HalconCpp::HImage& ho_Image)
 {
     Hlong width, height;
     ho_Image.GetImageSize(&width, &height);
-    //µÚÒ»¸ö²âÁ¿¶ÔÏóÂÖÀªÏßÖÐÐÄµãÐÐ×ø±ê
+    //ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Äµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     int hv_MeasureStartRow = 0;
 
     int hv_MeasureStartCol = width / 2;
     HTuple hv_MeasurePhi = 0;
-    //²âÁ¿¶ÔÏó³¤Öá
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     Hlong hv_MeasureLength1 = width;
-    //²âÁ¿¶ÔÏó¶ÌÖá
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     Hlong hv_MeasureLength2 = 1;
-    //Ñ°±ß¸öÊý
+    //Ñ°ï¿½ß¸ï¿½ï¿½ï¿½
     Hlong hv_FindEdgeNum = (width / hv_MeasureLength2) / 2;
     HTuple hv_MeasureHandle;
-    //²åÖµËã·¨Ö§³Öbilinear£¬ bicubic, nearest_neighbor
+    //ï¿½ï¿½Öµï¿½ã·¨Ö§ï¿½ï¿½bilinearï¿½ï¿½ bicubic, nearest_neighbor
     GenMeasureRectangle2(hv_MeasureStartRow, hv_MeasureStartCol, hv_MeasurePhi, hv_MeasureLength1,
         hv_MeasureLength2, width, height, "nearest_neighbor", &hv_MeasureHandle);
 }
 
-//Í¼Ïñ´¦ÀíÖÐÓöµ½Òì³£³ö´í£¬ÔòÖ±½Ó½«Ô­Ê¼Í¼Ïñµ±×÷½á¹ûÊä³ö
+//Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ì³£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½Ó½ï¿½Ô­Ê¼Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 void saveGrabImage() {
     return;
 }

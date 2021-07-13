@@ -17,7 +17,7 @@
 #include "find_burrs_finally.h"
 #include "../../../hds/Logger.h"
 #include "stdio.h"
-//#define FLAG_TEST_BY_LOCAL_FILE 0 //Ê¹ÓÃ±¾µØÎÄ¼şµ÷ÊÔËã·¨ÏÖ³¡¹¤×÷Ê±ÇëÆÁ±Î¸Ãºê
+//#define FLAG_TEST_BY_LOCAL_FILE 0 //ä½¿ç”¨æœ¬åœ°æ–‡ä»¶è°ƒè¯•ç®—æ³•ç°åœºå·¥ä½œæ—¶è¯·å±è”½è¯¥å®
 
 using namespace HalconCpp;
 using namespace commonfunction_c;
@@ -59,26 +59,26 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, co
 {
 	HObject Image;
 	BurrsPainter result;
-	result.setType(TYPE_BURRS_IMAGE_ERROR_NO_IMAGE); //¸Õ¿ªÊ¼Ã»ÓĞÍ¼
+	result.setType(TYPE_BURRS_IMAGE_ERROR_NO_IMAGE); //åˆšå¼€å§‹æ²¡æœ‰å›¾
 	try {
 		int distance = 0;
 		hv_threshold_gray_min = grayMin;
 		hv_threshold_gray_max = 255;
 		hv_select_region_min = 14200;
 		hv_burrs_limit = 55;
-		//Ã«´Ì·½Ïò£¬ 0 , horizontal(horiz) ºáÏòÈ«²¿ 1, vertical(vert) ×İÏòÈ«²¿
+		//æ¯›åˆºæ–¹å‘ï¼Œ 0 , horizontal(horiz) æ¨ªå‘å…¨éƒ¨ 1, vertical(vert) çºµå‘å…¨éƒ¨
 		hv_burrs_direction = INT_BURRS_DIRECTION_HORIZ;
-		//±ÈÀı³ß, 40*1.1¾µÍ·ÊÇ0.76£¬ ¸Ã¾µÍ·¼ÓÁ½¸ö»·ÊÇ0.728624
+		//æ¯”ä¾‹å°º, 40*1.1é•œå¤´æ˜¯0.76ï¼Œ è¯¥é•œå¤´åŠ ä¸¤ä¸ªç¯æ˜¯0.728624
 		hv_zoom_scale = 0.7286;
-		//»ù±¾¹¦ÄÜ²âÊÔÓÃÓ²ÅÌÎÄ¼ş¼´¿É
+		//åŸºæœ¬åŠŸèƒ½æµ‹è¯•ç”¨ç¡¬ç›˜æ–‡ä»¶å³å¯
 #ifdef FLAG_TEST_BY_LOCAL_FILE
-		/*  Ó²ÅÌÎÄ¼şµ÷ÊÔ´úÂë  */
+		/*  ç¡¬ç›˜æ–‡ä»¶è°ƒè¯•ä»£ç   */
 		//ReadImage(&ho_Image, "d:/images/22_1.bmp");
 
 		//result.setFileName("d:/images/22_1.bmp");
-		/*  Ó²ÅÌÎÄ¼şµ÷ÊÔ´úÂë  */
+		/*  ç¡¬ç›˜æ–‡ä»¶è°ƒè¯•ä»£ç   */
 #else
-		GenImage1(&ho_Image, "byte", w, h, (Hlong)image); //ÓÉÏà»ú´«Èë
+		GenImage1(&ho_Image, "byte", w, h, (Hlong)image); //ç”±ç›¸æœºä¼ å…¥
 #endif // FLAG_TEST_BY_LOCAL_FILE
 		//test temporary
 
@@ -86,39 +86,39 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, co
 		GetImageSize(ho_R, &hv_Width, &hv_Height);
 		GrayClosingRect(ho_R, &ho_R, 2, 2);
 
-		//µÚÒ»¸ö²âÁ¿¶ÔÏóÂÖÀªÏßÖĞĞÄµãĞĞ×ø±ê
+		//ç¬¬ä¸€ä¸ªæµ‹é‡å¯¹è±¡è½®å»“çº¿ä¸­å¿ƒç‚¹è¡Œåæ ‡
 		hv_MeasureStartRow = 0;
-		//µÚÒ»¸ö²âÁ¿¶ÔÏóÂÖÀªÏßÖĞĞÄµãÁĞ×ø±ê
+		//ç¬¬ä¸€ä¸ªæµ‹é‡å¯¹è±¡è½®å»“çº¿ä¸­å¿ƒç‚¹åˆ—åæ ‡
 
 		hv_MeasureStartRow = 0;
 		hv_MeasureStartCol = hv_Width / 2;
 		hv_MeasurePhi = 0;
-		//²âÁ¿¶ÔÏó³¤Öá
+		//æµ‹é‡å¯¹è±¡é•¿è½´
 		hv_MeasureLength1 = hv_Width;
-		//²âÁ¿¶ÔÏó¶ÌÖá
+		//æµ‹é‡å¯¹è±¡çŸ­è½´
 		hv_MeasureLength2 = 1;
-		//Ñ°±ß¸öÊı
+		//å¯»è¾¹ä¸ªæ•°
 		hv_FindEdgeNum = (hv_Height / hv_MeasureLength2) / 2;
 
 
-		//ÏÔÊ¾´°¿Ú³õÊ¼»¯
+		//æ˜¾ç¤ºçª—å£åˆå§‹åŒ–
 		dev_update_off();
-		//part 1 Ñ°ÕÒ¼«Æ¬ÇøÓò
+		//part 1 å¯»æ‰¾æç‰‡åŒºåŸŸ
 		GenRectangle1(&ho_ROI, 0, 0, hv_Height, hv_Width);
 		ReduceDomain(ho_R, ho_ROI, &ho_ImageReduce);
 		//emphasize (ImageReduce, ImageEmphasize, Width, Height, 1.5)
 		//mean_image (ImageReduce, Mean, 25, 25)
-		//Æ½»¬´¦ÀíÍ¼Ïñ
+		//å¹³æ»‘å¤„ç†å›¾åƒ
 		//gray_opening_rect (Mean, ImageOpening, 2, 2)
 		GrayClosingRect(ho_ImageReduce, &ho_ImageClosing, 15, 2);
-		//ÑÇÏñËØ±ß½ç
+		//äºšåƒç´ è¾¹ç•Œ
 		//edges_sub_pix (Image, Edges, 'lanser2', 0.5, 8, 50)
 
 		//dyn_threshold (ImageClosing, Mean, RegionsDyn, 3, 'light')
 
 		Threshold(ho_ImageClosing, &ho_Regions, hv_threshold_gray_min, hv_threshold_gray_max);
 
-		//¼ÆËã¼«Æ¬ÇãĞ±¶È
+		//è®¡ç®—æç‰‡å€¾æ–œåº¦
 
 		Connection(ho_Regions, &ho_Connects);
 
@@ -126,7 +126,7 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, co
 			9999999);
 		SmallestRectangle2(ho_SelectedRegion, &hv_AngleRow, &hv_AngleColumn, &hv_AnglePhi,
 			&hv_AngleL1, &hv_AngleL2);
-		//´òÓ¡¼«Æ¬Íâ½Ó¾Ø
+		//æ‰“å°æç‰‡å¤–æ¥çŸ©
 		GenRectangle2(&ho_RegionAngle, hv_AngleRow, hv_AngleColumn, hv_AnglePhi, hv_AngleL1,
 			hv_AngleL2);
 
@@ -139,21 +139,21 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, co
 		}
 		RotateImage(ho_ImageBin, &ho_ImageRotate, HTuple(hv_rotateAngle[0]), "constant");
 
-		//Í¼Æ¬Ñ¡×°ºó»áÓĞºÚ±ß£¬ÁíÍâÑ¡ÖĞÇøÓòÏÖÔÚÊÇ°×É«£¬ĞèÒªÈ¥±ß²¢ÇÒ×ö¸ºÆ¬ÔËËã
+		//å›¾ç‰‡é€‰è£…åä¼šæœ‰é»‘è¾¹ï¼Œå¦å¤–é€‰ä¸­åŒºåŸŸç°åœ¨æ˜¯ç™½è‰²ï¼Œéœ€è¦å»è¾¹å¹¶ä¸”åšè´Ÿç‰‡è¿ç®—
 		Threshold(ho_ImageRotate, &ho_RegionRotate, 128, 255);
 		RegionToBin(ho_RegionRotate, &ho_BinImage, 0, 255, hv_Width, hv_Height);
 
 
-		//»Ò¶ÈÖµ±ÕÔËËãÏû³ıĞ¡Òı½Å
+		//ç°åº¦å€¼é—­è¿ç®—æ¶ˆé™¤å°å¼•è„š
 
 		if (HDevWindowStack::IsOpen())
 			SetLineWidth(HDevWindowStack::GetActive(), 2);
 		if (HDevWindowStack::IsOpen())
 			SetDraw(HDevWindowStack::GetActive(), "margin");
-		//²åÖµËã·¨Ö§³Öbilinear£¬ bicubic, nearest_neighbor
+		//æ’å€¼ç®—æ³•æ”¯æŒbilinearï¼Œ bicubic, nearest_neighbor
 		GenMeasureRectangle2(hv_MeasureStartRow, hv_MeasureStartCol, hv_MeasurePhi, hv_MeasureLength1,
 			hv_MeasureLength2, hv_Width, hv_Height, "nearest_neighbor", &hv_MeasureHandle);
-		//´òÓ¡Ğı×ªºóµÄÔ­Í¼
+		//æ‰“å°æ—‹è½¬åçš„åŸå›¾
 
 		RotateImage(ho_Image, &ho_ImageShow, HTuple(hv_rotateAngle[0]), "constant");
 		{
@@ -166,15 +166,15 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, co
 
 			for (hv_Index = 1; hv_Index.Continue(end_val137, step_val137); hv_Index += step_val137)
 			{
-				//ÒÆ¶¯²âÁ¿¶ÔÏó¾ä±ú
+				//ç§»åŠ¨æµ‹é‡å¯¹è±¡å¥æŸ„
 				TranslateMeasure(hv_MeasureHandle, hv_MeasureStartRow + ((2 * hv_MeasureLength2) * hv_Index),
 					hv_MeasureStartCol);
-				//¸ù¾İ²âÁ¿±äÁ¿Éú³ÉRectangle2£¨ÓÃÓÚ¿ÉÊÓ»¯£¬¿É×¢ÊÍµô£©
+				//æ ¹æ®æµ‹é‡å˜é‡ç”ŸæˆRectangle2ï¼ˆç”¨äºå¯è§†åŒ–ï¼Œå¯æ³¨é‡Šæ‰ï¼‰
 				GenRectangle2(&ho_Rectangle, hv_MeasureStartRow + ((2 * hv_MeasureLength2) * hv_Index),
 					hv_MeasureStartCol, hv_MeasurePhi, hv_MeasureLength1, hv_MeasureLength2);
 
 
-				//²âÁ¿²¢ÏÔÊ¾Ñ°µ½µÄ±ß½çÎ»ÖÃµã
+				//æµ‹é‡å¹¶æ˜¾ç¤ºå¯»åˆ°çš„è¾¹ç•Œä½ç½®ç‚¹
 				MeasurePos(ho_BinImage, hv_MeasureHandle, 1, 30, "negative", "first", &hv_RowEdge,
 					&hv_ColumnEdge, &hv_Amplitude, &hv_Distance);
 
@@ -201,7 +201,7 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, co
 
 			for (int i = 0; i < end_val137; i = i + step - 1) {
 				inflection = commonfunction_c::BaseFunctions::findInflection((const int*)&(left[0]), end_val137, i, i + step, TYPE_INFLECTION_MAX);
-				if (inflection < 0) continue; //Î´ÕÒµ½¼«Öµ
+				if (inflection < 0) continue; //æœªæ‰¾åˆ°æå€¼
 				leftAvg = commonfunction_c::BaseFunctions::getArrayAverage(&(left[0]), end_val137, i, i + step);
 				if (left[inflection] - limit > leftAvg) {
 					int burrLength = left[inflection] - leftAvg;
@@ -213,10 +213,10 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, co
 			result.setGrabImageWidth(hv_Width);
 			delete[] left;
 		}
-		//¹Ø±Õ²âÁ¿¶ÔÏó
+		//å…³é—­æµ‹é‡å¯¹è±¡
 		CloseMeasure(hv_MeasureHandle);
 
-		//ÅäÖÃ±£´æÎÄ¼şµÄÎÄ¼şÃû
+		//é…ç½®ä¿å­˜æ–‡ä»¶çš„æ–‡ä»¶å
 		time_t t;
 		time(&t);
 		string stime;
@@ -267,7 +267,7 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, co
 	catch (HException& exp) {
 		try {
 			if (image != 0 && w != 0 && h != 0) {
-				//ÕÕÏà»úÄ£Ê½ÏÂÓöµ½Òì³£ĞèÒª³¢ÊÔ±£´æÍ¼Ïñ
+				//ç…§ç›¸æœºæ¨¡å¼ä¸‹é‡åˆ°å¼‚å¸¸éœ€è¦å°è¯•ä¿å­˜å›¾åƒ
 				GenImage1Extern(&ho_Image, "byte", w, h, (Hlong)image, NULL);
 				m_LongitudinalNormal++;
 				if (m_LongitudinalNormal > INT_NORMAL_IMAGE_MAX_COUNT) {
@@ -301,34 +301,34 @@ BurrsPainter halconWorker::actionTaichi(int limit, int grayMin, int w, int h, co
 BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax, int w, int h, const HBYTE* image, int polesWidth)
 {
 	BurrsPainter result;
-	result.setType(TYPE_BURRS_IMAGE_ERROR_NO_IMAGE); //¸Õ¿ªÊ¼Ã»ÓĞÍ¼
+	result.setType(TYPE_BURRS_IMAGE_ERROR_NO_IMAGE); //åˆšå¼€å§‹æ²¡æœ‰å›¾
 	try {
-		//debug Îª1Ê±»á´òÓ¡¹ı³ÌÍ¼Ïñ
+		//debug ä¸º1æ—¶ä¼šæ‰“å°è¿‡ç¨‹å›¾åƒ
 		hv_threshold_gray_min = grayMin;
 		hv_threshold_gray_max = 255;
 		hv_select_region_min = 4200;
 		int distance = 0;
 		hv_burrs_limit = limit;
-		//Ô¤Éè¼«Æ¬¿í¶È(°üº¬ÔÊĞíµÄÎó²î£©
+		//é¢„è®¾æç‰‡å®½åº¦(åŒ…å«å…è®¸çš„è¯¯å·®ï¼‰
 		hv_polesWidth = 25;
-		//Ã«´Ì·½Ïò£¬ 0 , horizontal(horiz) ºáÏòÈ«²¿ 1, vertical(vert) ×İÏòÈ«²¿
+		//æ¯›åˆºæ–¹å‘ï¼Œ 0 , horizontal(horiz) æ¨ªå‘å…¨éƒ¨ 1, vertical(vert) çºµå‘å…¨éƒ¨
 		hv_burrs_direction = INT_BURRS_DIRECTION_HORIZ;
-		//±ÈÀı³ß, 40*1.1¾µÍ·ÊÇ0.76£¬ ¸Ã¾µÍ·¼ÓÁ½¸ö»·ÊÇ0.728624
+		//æ¯”ä¾‹å°º, 40*1.1é•œå¤´æ˜¯0.76ï¼Œ è¯¥é•œå¤´åŠ ä¸¤ä¸ªç¯æ˜¯0.728624
 		hv_zoom_scale = 0.7286;
-		/*  Ó²ÅÌÎÄ¼şµ÷ÊÔ´úÂë  */
+		/*  ç¡¬ç›˜æ–‡ä»¶è°ƒè¯•ä»£ç   */
 #ifdef FLAG_TEST_BY_LOCAL_FILE
-		/*  Ó²ÅÌÎÄ¼şµ÷ÊÔ´úÂë  */
+		/*  ç¡¬ç›˜æ–‡ä»¶è°ƒè¯•ä»£ç   */
 		ReadImage(&ho_Image, "d:/images/21_1.bmp");
 		result.setFileName("d:/images/21_1.bmp");
-		/*  Ó²ÅÌÎÄ¼şµ÷ÊÔ´úÂë  */
+		/*  ç¡¬ç›˜æ–‡ä»¶è°ƒè¯•ä»£ç   */
 #else
-		GenImage1Extern(&ho_Image, "byte", w, h, (Hlong)image, NULL); //ÓÉÏà»ú´«Èë
+		GenImage1Extern(&ho_Image, "byte", w, h, (Hlong)image, NULL); //ç”±ç›¸æœºä¼ å…¥
 #endif // FLAG_TEST_BY_LOCAL_FILE
 		if (v2h) {
 			ho_Image = imageVertToHoriz(ho_Image);
 			hv_zoom_scale = hv_zoom_scale * 20.0 / 24.0;
 		}
-		//¸º¼«Í­Æ¬µÄ·ÖÇĞÎ»ÖÃ¿ÉÒÔ¿¼ÂÇÓÃºìÉ«·ÖÁ¿À´´¦Àí
+		//è´Ÿæé“œç‰‡çš„åˆ†åˆ‡ä½ç½®å¯ä»¥è€ƒè™‘ç”¨çº¢è‰²åˆ†é‡æ¥å¤„ç†
 		hv_is_Bronze_Compose3 = 0;
 		ho_R = ho_Image;
 		if (0 != (int(hv_is_Bronze_Compose3 == 1)))
@@ -337,39 +337,39 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 		}
 		GetImageSize(ho_R, &hv_Width, &hv_Height);
 		GrayClosingRect(ho_R, &ho_R, 2, 2);
-		//$µÚÒ»²½ ²éÕÒ¼«Æ¬ÇøÓò
-		//²éÕÒÑÇÏñËØ±ß½ç
+		//$ç¬¬ä¸€æ­¥ æŸ¥æ‰¾æç‰‡åŒºåŸŸ
+		//æŸ¥æ‰¾äºšåƒç´ è¾¹ç•Œ
 
-		//**²âÁ¿±äÁ¿³õÊ¼»¯**
-		//µÚÒ»¸ö²âÁ¿¶ÔÏóÂÖÀªÏßÖĞĞÄµãĞĞ×ø±ê
+		//**æµ‹é‡å˜é‡åˆå§‹åŒ–**
+		//ç¬¬ä¸€ä¸ªæµ‹é‡å¯¹è±¡è½®å»“çº¿ä¸­å¿ƒç‚¹è¡Œåæ ‡
 		hv_MeasureStartRow = 0;
-		//µÚÒ»¸ö²âÁ¿¶ÔÏóÂÖÀªÏßÖĞĞÄµãÁĞ×ø±ê
+		//ç¬¬ä¸€ä¸ªæµ‹é‡å¯¹è±¡è½®å»“çº¿ä¸­å¿ƒç‚¹åˆ—åæ ‡
 		hv_MeasureStartRow = 0;
 		hv_MeasureStartCol = hv_Width / 2;
 		hv_MeasurePhi = 0;
-		//²âÁ¿¶ÔÏó³¤Öá
+		//æµ‹é‡å¯¹è±¡é•¿è½´
 		hv_MeasureLength1 = hv_Width;
-		//²âÁ¿¶ÔÏó¶ÌÖá
+		//æµ‹é‡å¯¹è±¡çŸ­è½´
 		hv_MeasureLength2 = 1;
-		//Ñ°±ß¸öÊı
+		//å¯»è¾¹ä¸ªæ•°
 		hv_FindEdgeNum = (hv_Height / hv_MeasureLength2) / 2;
 
-		//part 1 Ñ°ÕÒ¼«Æ¬ÇøÓò
+		//part 1 å¯»æ‰¾æç‰‡åŒºåŸŸ
 		GenRectangle1(&ho_ROI, 0, 0, hv_Height, hv_Width);
 		ReduceDomain(ho_R, ho_ROI, &ho_ImageReduce);
 		//emphasize (ImageReduce, ImageEmphasize, Width, Height, 1.5)
 		//mean_image (ImageReduce, Mean, 25, 25)
-		//Æ½»¬´¦ÀíÍ¼Ïñ
+		//å¹³æ»‘å¤„ç†å›¾åƒ
 		//gray_opening_rect (Mean, ImageOpening, 2, 2)
 		GrayClosingRect(ho_ImageReduce, &ho_ImageClosing, 15, 2);
-		//ÑÇÏñËØ±ß½ç
+		//äºšåƒç´ è¾¹ç•Œ
 		//edges_sub_pix (Image, Edges, 'lanser2', 0.5, 8, 50)
 
 		//dyn_threshold (ImageClosing, Mean, RegionsDyn, 3, 'light')
 
 		Threshold(ho_ImageClosing, &ho_Regions, hv_threshold_gray_min, hv_threshold_gray_max);
 
-		//¼ÆËã¼«Æ¬ÇãĞ±¶È
+		//è®¡ç®—æç‰‡å€¾æ–œåº¦
 
 		Connection(ho_Regions, &ho_Connects);
 
@@ -377,7 +377,7 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 			199999);
 		SmallestRectangle2(ho_SelectedRegion, &hv_AngleRow, &hv_AngleColumn, &hv_AnglePhi,
 			&hv_AngleL1, &hv_AngleL2);
-		//´òÓ¡¼«Æ¬Íâ½Ó¾Ø
+		//æ‰“å°æç‰‡å¤–æ¥çŸ©
 		GenRectangle2(&ho_RegionAngle, hv_AngleRow, hv_AngleColumn, hv_AnglePhi, hv_AngleL1,
 			hv_AngleL2);
 
@@ -389,21 +389,21 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 			hv_rotateAngle[0] = HTuple(hv_rotateAngle[0]) - 180;
 		}
 		RotateImage(ho_ImageBin, &ho_ImageRotate, HTuple(hv_rotateAngle[0]), "constant");
-		//Í¼Æ¬Ñ¡×°ºó»áÓĞºÚ±ß£¬ÁíÍâÑ¡ÖĞÇøÓòÏÖÔÚÊÇ°×É«£¬ĞèÒªÈ¥±ß²¢ÇÒ×ö¸ºÆ¬ÔËËã
+		//å›¾ç‰‡é€‰è£…åä¼šæœ‰é»‘è¾¹ï¼Œå¦å¤–é€‰ä¸­åŒºåŸŸç°åœ¨æ˜¯ç™½è‰²ï¼Œéœ€è¦å»è¾¹å¹¶ä¸”åšè´Ÿç‰‡è¿ç®—
 		Threshold(ho_ImageRotate, &ho_RegionRotate, 128, 255);
 		RegionToBin(ho_RegionRotate, &ho_BinImage, 20, 220, hv_Width, hv_Height);
 
 
-		//»Ò¶ÈÖµ±ÕÔËËãÏû³ıĞ¡Òı½Å
+		//ç°åº¦å€¼é—­è¿ç®—æ¶ˆé™¤å°å¼•è„š
 
 		if (HDevWindowStack::IsOpen())
 			SetLineWidth(HDevWindowStack::GetActive(), 2);
 		if (HDevWindowStack::IsOpen())
 			SetDraw(HDevWindowStack::GetActive(), "margin");
-		//²åÖµËã·¨Ö§³Öbilinear£¬ bicubic, nearest_neighbor
+		//æ’å€¼ç®—æ³•æ”¯æŒbilinearï¼Œ bicubic, nearest_neighbor
 		GenMeasureRectangle2(hv_MeasureStartRow, hv_MeasureStartCol, hv_MeasurePhi, hv_MeasureLength1,
 			hv_MeasureLength2, hv_Width, hv_Height, "nearest_neighbor", &hv_MeasureHandle);
-		//´òÓ¡Ğı×ªºóµÄÔ­Í¼
+		//æ‰“å°æ—‹è½¬åçš„åŸå›¾
 
 		RotateImage(ho_Image, &ho_ImageShow, HTuple(hv_rotateAngle[0]), "constant");
 		{
@@ -417,15 +417,15 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 			int measureIdx = 0;
 			for (hv_Index = 1; hv_Index.Continue(end_val137, step_val137); hv_Index += step_val137)
 			{
-				//ÒÆ¶¯²âÁ¿¶ÔÏó¾ä±ú
+				//ç§»åŠ¨æµ‹é‡å¯¹è±¡å¥æŸ„
 				TranslateMeasure(hv_MeasureHandle, hv_MeasureStartRow + ((2 * hv_MeasureLength2) * hv_Index),
 					hv_MeasureStartCol);
-				//¸ù¾İ²âÁ¿±äÁ¿Éú³ÉRectangle2£¨ÓÃÓÚ¿ÉÊÓ»¯£¬¿É×¢ÊÍµô£©
+				//æ ¹æ®æµ‹é‡å˜é‡ç”ŸæˆRectangle2ï¼ˆç”¨äºå¯è§†åŒ–ï¼Œå¯æ³¨é‡Šæ‰ï¼‰
 				GenRectangle2(&ho_Rectangle, hv_MeasureStartRow + ((2 * hv_MeasureLength2) * hv_Index),
 					hv_MeasureStartCol, hv_MeasurePhi, hv_MeasureLength1, hv_MeasureLength2);
 
 
-				//²âÁ¿²¢ÏÔÊ¾Ñ°µ½µÄ±ß½çÎ»ÖÃµã
+				//æµ‹é‡å¹¶æ˜¾ç¤ºå¯»åˆ°çš„è¾¹ç•Œä½ç½®ç‚¹
 				MeasurePos(ho_BinImage, hv_MeasureHandle, 1, 30, "negative", "first", &hv_RowEdge,
 					&hv_ColumnEdge, &hv_Amplitude, &hv_Distance);
 				MeasurePos(ho_BinImage, hv_MeasureHandle, 1, 30, "positive", "last", &hv_RowEdgeR,
@@ -459,17 +459,17 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 			int MaxBurrValue = 0;
 			int MaxBurrX = 0;
 			int MaxBurrY = 0;
-			//ÒÔÏÂËã·¨ÄÜ¹»ÕÒµ½Ã«´Ì²¢ÇÒÈ·¶¨Ã«´ÌµÄ·½Ïò
+			//ä»¥ä¸‹ç®—æ³•èƒ½å¤Ÿæ‰¾åˆ°æ¯›åˆºå¹¶ä¸”ç¡®å®šæ¯›åˆºçš„æ–¹å‘
 			int i = 0;
 			int leftAvg, rightAvg, widthAvg, widthInflection;
 			int step = 100;
 			for (int i = 0; i < end_val137; i = i + step - 1) {
 				widthInflection = commonfunction_c::BaseFunctions::findInflection((const int*)&(width[0]), end_val137, i, i + step, TYPE_INFLECTION_MAX);
-				if (widthInflection < 0) continue; //Î´ÕÒµ½¼«ÖÂ
+				if (widthInflection < 0) continue; //æœªæ‰¾åˆ°æè‡´
 				leftAvg = commonfunction_c::BaseFunctions::getArrayAverage(&(left[0]), end_val137, i, i + step);
 				rightAvg = commonfunction_c::BaseFunctions::getArrayAverage(&(right[0]), end_val137, i, i + step);
 				widthAvg = commonfunction_c::BaseFunctions::getArrayAverage(&(width[0]), end_val137, i, i + step);
-				//Ã«´ÌÅĞ¶ÏµÄÒªÇóÊÇ£¬ ¿í¶È³¬¹ıÉè¶¨¼«Æ¬¿í¶È£¬²¢ÇÒÓĞÒ»¶¨µÄÍ»Æğ
+				//æ¯›åˆºåˆ¤æ–­çš„è¦æ±‚æ˜¯ï¼Œ å®½åº¦è¶…è¿‡è®¾å®šæç‰‡å®½åº¦ï¼Œå¹¶ä¸”æœ‰ä¸€å®šçš„çªèµ·
 				if (width[widthInflection] > hv_polesWidth[0].I() && width[widthInflection] - widthAvg > (step / 10)) {
 					if ((leftAvg - left[widthInflection]) > (right[widthInflection] - rightAvg))
 						BurrX = left[widthInflection];
@@ -500,7 +500,7 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 		hv_Distance = (float)distance * hv_zoom_scale;
 
 
-		//¹Ø±Õ²âÁ¿¶ÔÏó
+		//å…³é—­æµ‹é‡å¯¹è±¡
 		CloseMeasure(hv_MeasureHandle);
 		string fileName;
 		time_t t;
@@ -542,7 +542,7 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 	catch (HException& exp) {
 		try {
 			if (image != 0 && w != 0 && h != 0) {
-				//ÕÕÏà»úÄ£Ê½ÏÂÓöµ½Òì³£ĞèÒª³¢ÊÔ±£´æÍ¼Ïñ
+				//ç…§ç›¸æœºæ¨¡å¼ä¸‹é‡åˆ°å¼‚å¸¸éœ€è¦å°è¯•ä¿å­˜å›¾åƒ
 				GenImage1Extern(&ho_Image, "byte", w, h, (Hlong)image, NULL);
 				m_LongitudinalNormal++;
 				if (m_LongitudinalNormal > INT_NORMAL_IMAGE_MAX_COUNT) {
@@ -600,7 +600,7 @@ float halconWorker::adjustDis(int& value, float zoom, bool doAdjust)
 		return 16.0 - sqrt(16.0 - distance);
 	}
 	else if (distance > 16.0 && distance <= 19.0) {
-		//Ì«´óµÄÃ«´Ì¾¡Á¿¼õĞ¡µã
+		//å¤ªå¤§çš„æ¯›åˆºå°½é‡å‡å°ç‚¹
 		return 15.0 + sqrt(distance - 15.0);
 	}
 	else if (distance > 18.0 && distance <= 23.0) {

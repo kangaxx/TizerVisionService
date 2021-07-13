@@ -6,7 +6,6 @@
 class ZmqServer
 {
 public:
-    //Ëø
     static HANDLE hMutex;
     static DWORD WINAPI ThreadProc(PVOID pParam);
     static HANDLE m_hThread;

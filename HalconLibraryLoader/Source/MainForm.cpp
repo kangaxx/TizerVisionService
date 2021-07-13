@@ -24,7 +24,7 @@
 
 
 //[MiscUserDefs] You can add your own user definitions and misc code here...
-typedef char** (*halconFunc)(int argc, char** out, char* in[]); //ºó±ßÎª²ÎÊý£¬Ç°ÃæÎª·µ»ØÖµ
+typedef char** (*halconFunc)(int argc, char** out, char* in[]); //ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½Öµ
 //[/MiscUserDefs]
 
 //==============================================================================
@@ -106,7 +106,7 @@ void MainForm::buttonClicked (juce::Button* buttonThatWasClicked)
     if (buttonThatWasClicked == btnRun.get())
     {
         //[UserButtonCode_btnRun] -- add your button handler code here..
-        //e.x ÔËÐÐtaichi Ëã·¨
+        //e.x ï¿½ï¿½ï¿½ï¿½taichi ï¿½ã·¨
 
         HMODULE *lib = (HMODULE*)(LoadLibrary(LPCTSTR(L"HalconBurrTaichi.dll")));
 
@@ -115,13 +115,13 @@ void MainForm::buttonClicked (juce::Button* buttonThatWasClicked)
             return;
         hFunc = (halconFunc)GetProcAddress(*lib, "halconAction");
         char* source[7];
-        //ÉèÖÃÊäÈë²ÎÊý
+        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         int burr_limit = 15;
         int grayMin = 20;
         int grayMax = 255;
-        int width = 0; //Êµ¼Ê²ÎÊýÐèÒª²Î¿´Ïà»úÇé¿ö£¬¶ÁÈ¡±¾µØÎÄ¼þÊ±ÉèÖÃÎª0
-        int height = 0; // Í¬ÉÏ
-        unsigned char* image = NULL; //Í¬ÉÏ
+        int width = 0; //Êµï¿½Ê²ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½Î¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Îª0
+        int height = 0; // Í¬ï¿½ï¿½
+        unsigned char* image = NULL; //Í¬ï¿½ï¿½
         int polesWidth = 10;
         source[0] = (char*)(&burr_limit);
         source[1] = (char*)(&grayMin);
@@ -130,7 +130,7 @@ void MainForm::buttonClicked (juce::Button* buttonThatWasClicked)
         source[4] = (char*)(&height);
         source[5] = (char*)(&image);
         source[6] = (char*)(&polesWidth);
-        //³õÊ¼»¯Êä³ö²ÎÊý
+        //ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         char buffer[INT_HALCON_BURR_RESULT_SIZE] = { '\0' };
         char** out = new char*();
         *out = &buffer[0];

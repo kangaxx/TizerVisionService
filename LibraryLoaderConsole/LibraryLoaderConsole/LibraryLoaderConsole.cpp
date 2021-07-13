@@ -1,4 +1,4 @@
-﻿// LibraryLoaderConsole.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
+// LibraryLoaderConsole.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
 //
 
 #include <iostream>
@@ -13,17 +13,20 @@ typedef char** (*halconFunc)(int argc, char** out, char* in[]); //后边为参�
 typedef char& (*halconFunc2)(int argc, char& out, char* in[]);
 
 void loadLib(int idx) {
-	HMODULE* lib = (HMODULE*)(LoadLibrary(LPCTSTR(L"HalconLongtidue.dll")));
-	if (lib == 0)
+	HINSTANCE hDllInst;
+	hDllInst = LoadLibrary(LPCTSTR(L"HalconBurrTaichi.dll"));
+	if (hDllInst == 0)
 		return;
 	halconFunc hFunc = NULL;
-	hFunc = (halconFunc)GetProcAddress(*lib, "halconAction");
+	hFunc = (halconFunc)GetProcAddress(hDllInst, "halconAction");
+	if (hFunc == 0)
+		return;
 	int burr_limit = 15;
 	int grayMin = 20;
 	int grayMax = 255;
 	char* source[7];
 	//设置输入参数
-
+	//
 	int width = 0; //实际参数需要参看相机情况，读取本地文件时设置为0
 	int height = 0; // 同上
 	unsigned char* image = NULL; //同上
@@ -40,9 +43,9 @@ void loadLib(int idx) {
 	char** out = new char* ();
 	*out = &buffer[0];
 	hFunc(6, out, source);
-	std::cout << "get taichi result : " << out << std::endl;
-	if (lib > 0)
-		FreeLibrary(*lib);
+	std::cout << "get taichi result : " << **out << std::endl;
+	if (hDllInst > 0)
+		FreeLibrary(hDllInst);
 	return;
 }
 
@@ -50,7 +53,7 @@ int main()
 {
 	std::cout << "Hello World! Welcome to library loader, pls select library by num\n";
 	std::cout << "[0] exit program \n";
-	std::cout << "[1] : halcon taichi! \n";
+	std::cout << "[1] halcon taichi! \n";
 	int index;
 	while (true) {
 		std::cin >> index;
@@ -59,7 +62,6 @@ int main()
 		loadLib(index);
 	}
 	return 0;
-
 }
 
 

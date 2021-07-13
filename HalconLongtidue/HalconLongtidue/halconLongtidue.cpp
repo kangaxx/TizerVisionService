@@ -1,6 +1,7 @@
 #include "halconLongtidue.h"
 
-char** halconLongtitudeAction(int argc, char** out, char* in[])
+char** halconAction(int argc, char** out, char* in[])
 {
-	return nullptr;
+	**out = (char)42;
+	return out;
 }

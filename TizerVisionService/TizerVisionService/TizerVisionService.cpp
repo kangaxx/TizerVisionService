@@ -1,4 +1,4 @@
-﻿// TizerVisionService.cpp: WinMain 的实现
+// TizerVisionService.cpp: WinMain 的实现
 
 
 #include "pch.h"
@@ -384,7 +384,6 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 				//do nothing yet
 			}
 		}
-
 	}
 	catch (const GenericException& e)
 	{

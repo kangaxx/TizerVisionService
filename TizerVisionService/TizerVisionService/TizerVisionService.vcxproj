@@ -74,8 +74,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\basler\Development\include;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(ZMQ_ROOT);D:\boost_1_76_0;C:\Program Files\MySQL\MySQL Server 8.0\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);$(ZMQ_ROOT);D:\boost_1_76_0\libs;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ZMQ_ROOT);D:\basler\Development\include;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;D:\boost_1_76_0;C:\Program Files\MySQL\MySQL Server 8.0\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ZMQ_ROOT);D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);D:\boost_1_76_0\libs;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IgnoreImportLibrary>true</IgnoreImportLibrary>

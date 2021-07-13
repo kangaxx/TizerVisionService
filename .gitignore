@@ -31,6 +31,18 @@
 *.out
 *.app
 
+#decrypt
+*.cpp2
+*.cppb
+*.h2
+*.hb
+*.hpp2
+*.hppb
+*.c2
+*.cb
+*.x
+*.zip
+
 #vs 2019
 .vs
 Debug

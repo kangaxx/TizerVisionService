@@ -1,6 +1,4 @@
 #pragma once
-//记录毛刺数据，将统计信息写入数据库
-//数据库操作部分使用hds里的SqlHelper类
 //add by gxx 20210524
 #include "pch.h"
 #include "../../../hds/commonfunction_c.h"
@@ -112,7 +110,9 @@ private:
 	}
 
 	DataCounter(const DataCounter& right) {
-		//do nothing
+		clearData();
+		sqlHelper.connect("c:\\tizer\\config.ini");
+		setDate();
 	}
 
 	void operator=(const DataCounter& right) { 
