@@ -10,6 +10,7 @@
 #include <iostream>
 #include <UserEnv.h>
 #include "../../../hds/commonfunction_c.h"
+#include "../../../hds/configHelper.h"
 #include <fstream>
 #include <zmq.h>
 #include <string.h>
@@ -44,6 +45,9 @@ HANDLE ZmqServer::hMutex = CreateMutexW(NULL, FALSE, NULL);
 HANDLE ZmqServer::m_hThread = NULL;
 DWORD ZmqServer::m_dwThreadID = NULL;
 
+typedef char** (*halconFunc)(int argc, char** out, char* in[]); //后边为参数，前面为返回值
+typedef char& (*halconFunc2)(int argc, char& out, char* in[]);
+
 class CTizerVisionServiceModule : public ATL::CAtlServiceModuleT< CTizerVisionServiceModule, IDS_SERVICENAME >
 {
 public :
@@ -73,6 +77,7 @@ public :
 	HRESULT RegisterAppId(bool bService = false) throw();//服务注册  
 private:
 	int m_num;
+	void loadLibrary(int index);
 };
 
 CTizerVisionServiceModule _AtlModule;
@@ -135,6 +140,45 @@ HRESULT CTizerVisionServiceModule::RegisterAppId(bool bService) throw()
 		}
 	}
 	return hr;
+}
+
+void CTizerVisionServiceModule::loadLibrary(int index)
+{
+	HINSTANCE hDllInst;
+	configHelper ch("c:\\tizer\\config.ini", CT_JSON);
+	hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("dll")).c_str()));
+	if (hDllInst == 0)
+		return;
+	halconFunc hFunc = NULL;
+	hFunc = (halconFunc)GetProcAddress(hDllInst, "halconAction");
+	if (hFunc == 0)
+		return;
+	int burr_limit = 15;
+	int grayMin = 20;
+	int grayMax = 255;
+	char* source[7];
+	//设置输入参数
+	//
+	int width = 0; //实际参数需要参看相机情况，读取本地文件时设置为0
+	int height = 0; // 同上
+	unsigned char* image = NULL; //同上
+	int polesWidth = 10;
+	source[0] = (char*)(&burr_limit);
+	source[1] = (char*)(&grayMin);
+	source[2] = (char*)(&grayMax);
+	source[3] = (char*)(&width);
+	source[4] = (char*)(&height);
+	source[5] = (char*)(&image);
+	source[6] = (char*)(&polesWidth);
+	//初始化输出参数
+	char buffer[INT_HALCON_BURR_RESULT_SIZE] = { '\0' };
+	char** out = new char* ();
+	*out = &buffer[0];
+	hFunc(6, out, source);
+	std::cout << "get taichi result : " << **out << std::endl;
+	if (hDllInst > 0)
+		FreeLibrary(hDllInst);
+	return;
 }
 
 void CTizerVisionServiceModule::OnPause() throw()
@@ -223,7 +267,9 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 			ResumeThread(ZmqServer::m_hThread);
 		}
 		/*************************************************          end        *********************************************************/
-		/* begin 不连相机调试时启用一下代码 
+
+
+		/* begin 不连相机调试时启用一下代码 */
 		//纵向和侧面各做一次
 		bool actionType = true;
 		while (true) {
@@ -238,11 +284,14 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 			actionType = !actionType;
 			char** p = new char* ();
 			*p = &msg[0];
+
+
+
 			SerializationFactory::Serialize((SerializationOjbect*)&burrInfo, p);
 
 			DataCounter *dc = &(DataCounter::getInstance());
 			//zmq_send(responder, msg, INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE, 0);
-			dc->write(&burrInfo);
+			dc->write(&burrInfo, 0, "taichi");
 
 			BurrsInfoString burrString(msg);
 
@@ -253,7 +302,7 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 			p = 0;
 			ReleaseMutex(ZmqServer::hMutex);
 		}
-		end 不连相机调试时启用的代码  */
+		/* end 不连相机调试时启用的代码* /
 
 
 		/*  单独调试背光taichi相机，需要指定曝光数，一旦启用次程序将会持续while循环在taichi相机上 		

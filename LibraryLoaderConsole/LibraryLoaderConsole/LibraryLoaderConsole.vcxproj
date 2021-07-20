@@ -80,8 +80,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(HALCONROOT)\include\halconcpp;$(ZMQ_ROOT);$(HALCONROOT)\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(ZMQ_ROOT);$(HALCONROOT)\lib\$(HALCONARCH);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(HALCONROOT)\include\halconcpp;$(ZMQ_ROOT);$(HALCONROOT)\include;D:\boost_1_76_0;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ZMQ_ROOT);$(HALCONROOT)\lib\$(HALCONARCH);D:\boost_1_76_0\libs;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>

@@ -218,6 +218,7 @@
     <ClInclude Include="..\..\..\hds\common.h" />
     <ClInclude Include="..\..\..\hds\commonfunction_c.h" />
     <ClInclude Include="..\..\..\hds\commonplug_global.h" />
+    <ClInclude Include="..\..\..\hds\configHelper.h" />
     <ClInclude Include="..\..\..\hds\FastDelegate.h" />
     <ClInclude Include="..\..\..\hds\Fixed2WayList.h" />
     <ClInclude Include="..\..\..\hds\JsonHelper.h" />

@@ -5,16 +5,20 @@
 #include <Windows.h>
 
 #include "../../../hds/common.h"
+#include "../../../hds/commonfunction_c.h"
 #include "../../../hds/serialization_c11.h"
 #include "../../../hds/halconUtils.h"
 #include "../../../hds/Logger.h"
+#include "../../../hds/configHelper.h"
 
 typedef char** (*halconFunc)(int argc, char** out, char* in[]); //后边为参数，前面为返回值
 typedef char& (*halconFunc2)(int argc, char& out, char* in[]);
+using namespace commonfunction_c;
 
 void loadLib(int idx) {
 	HINSTANCE hDllInst;
-	hDllInst = LoadLibrary(LPCTSTR(L"HalconBurrTaichi.dll"));
+	configHelper ch("c:\\tizer\\config.ini", CT_JSON);
+	hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("dll")).c_str()));
 	if (hDllInst == 0)
 		return;
 	halconFunc hFunc = NULL;
