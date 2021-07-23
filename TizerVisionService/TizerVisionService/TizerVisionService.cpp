@@ -21,6 +21,7 @@ using namespace ATL;
 
 #include "../../../hds/serialization_c11.h"
 #include "../../../hds/Fixed2WayList.h"
+#include "../../../hds/FastDelegate.h"
 #include "find_burrs_finally.h"
 #include "ZmqServer.h"
 #include "BurrsInfoString.h"
@@ -39,6 +40,7 @@ using namespace ATL;
 using namespace commonfunction_c;
 using namespace Pylon;
 using namespace extensionfunction_c;
+using namespace fastdelegate;
 #define SERVICE_CONTROL_CUSTOM_MESSAGE 0x0085
 
 HANDLE ZmqServer::hMutex = CreateMutexW(NULL, FALSE, NULL);
@@ -146,7 +148,7 @@ void CTizerVisionServiceModule::loadLibrary(int index)
 {
 	HINSTANCE hDllInst;
 	configHelper ch("c:\\tizer\\config.ini", CT_JSON);
-	hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("dll")).c_str()));
+	hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("dll", string("123"))).c_str()));
 	if (hDllInst == 0)
 		return;
 	halconFunc hFunc = NULL;
@@ -156,11 +158,12 @@ void CTizerVisionServiceModule::loadLibrary(int index)
 	int burr_limit = 15;
 	int grayMin = 20;
 	int grayMax = 255;
-	char* source[7];
+	char* source[8];
 	//设置输入参数
 	//
 	int width = 0; //实际参数需要参看相机情况，读取本地文件时设置为0
 	int height = 0; // 同上
+	int localImage = ch.findValue("localImage", 1);
 	unsigned char* image = NULL; //同上
 	int polesWidth = 10;
 	source[0] = (char*)(&burr_limit);
@@ -170,12 +173,14 @@ void CTizerVisionServiceModule::loadLibrary(int index)
 	source[4] = (char*)(&height);
 	source[5] = (char*)(&image);
 	source[6] = (char*)(&polesWidth);
+	source[7] = (char*)(&localImage);
 	//初始化输出参数
 	char buffer[INT_HALCON_BURR_RESULT_SIZE] = { '\0' };
 	char** out = new char* ();
 	*out = &buffer[0];
 	hFunc(6, out, source);
 	std::cout << "get taichi result : " << **out << std::endl;
+
 	if (hDllInst > 0)
 		FreeLibrary(hDllInst);
 	return;

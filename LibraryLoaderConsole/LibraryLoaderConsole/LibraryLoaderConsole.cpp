@@ -7,51 +7,90 @@
 #include "../../../hds/common.h"
 #include "../../../hds/commonfunction_c.h"
 #include "../../../hds/serialization_c11.h"
+#include "../../../hds/FastDelegate.h"
 #include "../../../hds/halconUtils.h"
 #include "../../../hds/Logger.h"
 #include "../../../hds/configHelper.h"
+using namespace fastdelegate;
+class LibraryLoader;
+typedef FastDelegate3<int, char*[], const HBYTE*> SIGNAL_INT_CHAR_BYTE;
+typedef char** (*halconFunc)(int, char*[], char**);
+typedef char** (*cameraWork)(int, char* [], char**);
+typedef void (*callHalconFunc)(int, char*[], const HBYTE*);
+typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [], const HBYTE*));
 
-typedef char** (*halconFunc)(int argc, char** out, char* in[]); //后边为参数，前面为返回值
-typedef char& (*halconFunc2)(int argc, char& out, char* in[]);
+
 using namespace commonfunction_c;
 
-void loadLib(int idx) {
-	HINSTANCE hDllInst;
-	configHelper ch("c:\\tizer\\config.ini", CT_JSON);
-	hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("dll")).c_str()));
-	if (hDllInst == 0)
+
+class LibraryLoader {
+public:
+	//读取算法动态链接库
+	void runHalconLib(int argc, char* in[], const HBYTE* image) {
+		HINSTANCE hDllInst;
+		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
+		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("halconLibrary", string("string"))).c_str()));
+		if (hDllInst == 0)
+			return;
+		halconFunc func = NULL;
+		func = (halconFunc)GetProcAddress(hDllInst, "halconAction");
+		if (func == 0)
+			return;
+		int burr_limit = 15;
+		int grayMin = 140;
+		int grayMax = 255;
+		int localImage = ch.findValue("localImage", 1);
+		char* source[8];
+		//设置输入参数
+		//
+		int width = 0; //实际参数需要参看相机情况，读取本地文件时设置为0
+		int height = 0; // 同上
+		int polesWidth = 10;
+		source[0] = (char*)(&burr_limit);
+		source[1] = (char*)(&grayMin);
+		source[2] = (char*)(&grayMax);
+		source[3] = (char*)(&width);
+		source[4] = (char*)(&height);
+		source[5] = (char*)(image);
+		source[6] = (char*)(&polesWidth);
+		source[7] = (char*)(&localImage);
+		//初始化输出参数
+		char buffer[INT_HALCON_BURR_RESULT_SIZE] = { '\0' };
+		char** out = new char* ();
+		*out = &buffer[0];
+		func(6, source, out);
+		std::cout << "get taichi result : " << **out << std::endl;
+		if (hDllInst > 0)
+			FreeLibrary(hDllInst);
 		return;
-	halconFunc hFunc = NULL;
-	hFunc = (halconFunc)GetProcAddress(hDllInst, "halconAction");
-	if (hFunc == 0)
-		return;
-	int burr_limit = 15;
-	int grayMin = 20;
-	int grayMax = 255;
-	char* source[7];
-	//设置输入参数
-	//
-	int width = 0; //实际参数需要参看相机情况，读取本地文件时设置为0
-	int height = 0; // 同上
-	unsigned char* image = NULL; //同上
-	int polesWidth = 10;
-	source[0] = (char*)(&burr_limit);
-	source[1] = (char*)(&grayMin);
-	source[2] = (char*)(&grayMax);
-	source[3] = (char*)(&width);
-	source[4] = (char*)(&height);
-	source[5] = (char*)(&image);
-	source[6] = (char*)(&polesWidth);
-	//初始化输出参数
-	char buffer[INT_HALCON_BURR_RESULT_SIZE] = { '\0' };
-	char** out = new char* ();
-	*out = &buffer[0];
-	hFunc(6, out, source);
-	std::cout << "get taichi result : " << **out << std::endl;
-	if (hDllInst > 0)
-		FreeLibrary(hDllInst);
-	return;
-}
+	}
+
+	//读取相机动态链接库
+
+	void runCameraLib() {
+		HINSTANCE hDllInst;
+		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
+		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str()));
+		if (hDllInst == 0)
+			return;
+		cameraWork cameraWorkFunc = NULL;
+		cameraWorkFunc = (cameraWork)GetProcAddress(hDllInst, "cameraWorker");
+		if (cameraWorkFunc == 0) {
+			FreeLibrary(hDllInst);
+			return;
+		}
+		setHalconFunctionDelegate setDelegate = NULL;
+		setDelegate = (setHalconFunctionDelegate)GetProcAddress(hDllInst, "setHalconFunction");
+		if (setDelegate == 0) {
+			FreeLibrary(hDllInst);
+			return;
+		}
+		setDelegate(&LibraryLoader::runHalconLib);
+		char* out = new char[10];
+		cameraWorkFunc(0, NULL, &out);
+		delete[] out;
+	}
+};
 
 int main()
 {
@@ -63,7 +102,10 @@ int main()
 		std::cin >> index;
 		std::cout << "selected index :" << index << std::endl;
 		if (index == 0) return 0;
-		loadLib(index);
+		LibraryLoader ll;
+		ll.runCameraLib();
+
+		//runHalconLib(index, NULL, NULL);
 	}
 	return 0;
 }
