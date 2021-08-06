@@ -14,7 +14,7 @@ using namespace serialization_c11;
 //预设图片保存数量
 #define INT_NORMAL_IMAGE_MAX_COUNT 10000
 #define INT_ALERT_IMAGE_MAX_COUNT 10000
-
+//#define FLAG_TEST_BY_LOCAL_FILE 0 //使用本地文件调试算法现场工作时,打开该宏，现场真实程序请屏蔽该宏
 class halconWorker {
 public:
 	BurrsPainter halconAction(int limit, int grayMin, int grayMax, int width, int height, const HBYTE* image, int polesWidth = 15);

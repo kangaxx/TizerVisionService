@@ -42,7 +42,6 @@ using namespace Pylon;
 using namespace extensionfunction_c;
 using namespace fastdelegate;
 #define SERVICE_CONTROL_CUSTOM_MESSAGE 0x0085
-
 HANDLE ZmqServer::hMutex = CreateMutexW(NULL, FALSE, NULL);
 HANDLE ZmqServer::m_hThread = NULL;
 DWORD ZmqServer::m_dwThreadID = NULL;
@@ -275,8 +274,11 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 
 
 		/* begin 不连相机调试时启用一下代码 */
+#ifdef FLAG_TEST_BY_LOCAL_FILE
 		//纵向和侧面各做一次
+
 		bool actionType = true;
+		int virsual_count = 0;
 		while (true) {
 			char recv[100] = { '\0' };
 			WaitForSingleObject(ZmqServer::hMutex, INFINITE);
@@ -296,8 +298,13 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 
 			DataCounter *dc = &(DataCounter::getInstance());
 			//zmq_send(responder, msg, INT_SERIALIZABLE_BURRINFO_OBJECT_SIZE, 0);
-			dc->write(&burrInfo, 0, "taichi");
-
+			if (virsual_count < 200)
+				dc->write(&burrInfo, 0, "taichi");
+			else
+				dc->write(&burrInfo, 0, "Longitudinal");
+			virsual_count++;
+			if (virsual_count > 400)
+				virsual_count = 0;
 			BurrsInfoString burrString(msg);
 
 			LogEvent(LPCTSTR(msg));
@@ -307,6 +314,7 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 			p = 0;
 			ReleaseMutex(ZmqServer::hMutex);
 		}
+#endif
 		/* end 不连相机调试时启用的代码* /
 
 
@@ -344,6 +352,7 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 
 		}
 		// Enumerate devices.
+		Logger l("d:");
 		DeviceInfoList_t devices;
 		pTl->EnumerateAllDevices(devices);
 		bool isTaichi = false;
@@ -357,6 +366,8 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 				{
 					cameras[i].Attach(tlFactory.CreateDevice(devices[i]));
 					string value = cameras[i].GetDeviceInfo().GetFriendlyName();
+					//string _sn = cameras[i].GetDeviceInfo().GetSerialNumber();
+					//l.Log(_sn);
 					if (value._Equal("taichi (23528975)")) {
 						isTaichi = true;
 						//cameras[i].ExposureTimeAbs.SetValue(1000);
@@ -391,7 +402,7 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 					*/
 
 					//list cameras grab
-					Logger l("d:");
+
 					while (cameras[i].IsGrabbing())
 					{
 						CGrabResultPtr ptrGrabResult;

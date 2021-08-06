@@ -17,7 +17,7 @@
 #include "find_burrs_finally.h"
 #include "../../../hds/Logger.h"
 #include "stdio.h"
-//#define FLAG_TEST_BY_LOCAL_FILE 0 //使用本地文件调试算法现场工作时请屏蔽该宏
+
 
 using namespace HalconCpp;
 using namespace commonfunction_c;
@@ -526,7 +526,7 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 			fileName = "d:/grabs/la_normal_" + string(number) + ".jpg";
 			result.setType(TYPE_BURRS_IMAGE_EDGE_NORMAL);
 		}
-		HImage imageForWrite = ho_ImageShow;
+		HImage imageForWrite = ho_ImageBin;
 		imageForWrite = imageForWrite.ZoomImageFactor(0.5, 0.5, "bilinear");
 		imageForWrite.WriteImage("jpg", 0, fileName.c_str());
 		Hlong zoomWidth, zoomHeight;
@@ -535,8 +535,6 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 		result.setSaveImageHeight(zoomHeight);
 		result.setFileName(fileName.c_str());
 		result.setFileTime(stime.c_str());
-
-
 		return result;
 	}
 	catch (HException& exp) {
