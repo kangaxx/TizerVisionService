@@ -11,9 +11,6 @@ using namespace commonfunction_c;
 DWORD __stdcall ZmqServer::ThreadProc(PVOID pParam)
 {
     Fixed2WayList<BurrsInfoString>* burrsInfoList = (Fixed2WayList<BurrsInfoString>*) pParam;
-    //��̨�����ڴ˳�������
-    //��Ҫ������д��
-    //���tcp�˿�5555����ȡ�ź�����
     void* context = zmq_ctx_new();
     void* responder = zmq_socket(context, ZMQ_REP);
     int rc = zmq_bind(responder, "tcp://*:5555");

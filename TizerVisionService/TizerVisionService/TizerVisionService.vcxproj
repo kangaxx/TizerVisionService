@@ -224,6 +224,7 @@
     <ClInclude Include="..\..\..\hds\JsonHelper.h" />
     <ClInclude Include="..\..\..\hds\Logger.h" />
     <ClInclude Include="..\..\..\hds\serialization_c11.h" />
+    <ClInclude Include="..\..\..\hds\vc_thread_pool.h" />
     <ClInclude Include="BurrsInfoString.h" />
     <ClInclude Include="DataCounter.h" />
     <ClInclude Include="find_burrs_finally.h" />

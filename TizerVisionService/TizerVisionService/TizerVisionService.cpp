@@ -409,6 +409,7 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 						cameras[i].RetrieveResult(5000, ptrGrabResult, TimeoutHandling_ThrowException);
 						if (ptrGrabResult->GrabSucceeded())
 						{
+
 							const HBYTE* pImageBuffer;
 							pImageBuffer = (HBYTE*)ptrGrabResult->GetBuffer();
 
@@ -433,10 +434,14 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 							char** p = new char* ();
 							*p = &msg[0];
 							SerializationFactory::Serialize((SerializationOjbect*)tmp, p);
-
+							//多线程情况下需要用锁机制控制网络通讯防止线程互相锁死
+							WaitForSingleObject(ZmqServer::hMutex, INFINITE);
 							//LogEvent(BaseFunctions::s2ws(BaseFunctions::f2str(bp.getDistance(0))).c_str());
+							BurrsInfoString burrString(msg);
+							burrsInfoList.insertElement(burrString, 0);
 							delete p;
 							p = 0;
+							ReleaseMutex(ZmqServer::hMutex);
 						}
 						else
 						{
