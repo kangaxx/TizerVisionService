@@ -1,0 +1,164 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{DC169618-08B3-3F9E-BB9D-74A4BA5E3191}</ProjectGuid>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <Keyword>Win32Proj</Keyword>
+    <Platform>x64</Platform>
+    <ProjectName>redis-plus-plus-static</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)lib\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">redis++</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\vc\win_redis\redis-5.0.10\msvs\redis-plus-plus-master\lib\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">redis-plus-plus-static.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">redis++_static</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\..\deps\redis-plus-plus-master\src\sw\redis++\no_tls;..\..\deps\redis-plus-plus-master\src\sw\redis++;..\..\deps;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>NOMINMAX;CMAKE_INTDIR="Debug";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_DEBUG;NOMINMAX;CMAKE_INTDIR=\"Debug\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++;D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\no_tls;D:\vc\win_redis\redis-5.0.10\deps;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++;D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\no_tls;D:\vc\win_redis\redis-5.0.10\deps;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++;D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\no_tls;D:\vc\win_redis\redis-5.0.10\deps;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>NOMINMAX;CMAKE_INTDIR="Release";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;NOMINMAX;CMAKE_INTDIR=\"Release\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++;D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\no_tls;D:\vc\win_redis\redis-5.0.10\deps;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++;D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\no_tls;D:\vc\win_redis\redis-5.0.10\deps;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\CMakeLists.txt">
+      <StdOutEncoding>UTF-8</StdOutEncoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule D:/vc/win_redis/redis-5.0.10/deps/redis-plus-plus-master/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"D:\Program Files\CMake\bin\cmake.exe" -SD:/vc/win_redis/redis-5.0.10/deps/redis-plus-plus-master -BD:/vc/win_redis/redis-5.0.10/msvs/redis-plus-plus-master --check-stamp-file D:/vc/win_redis/redis-5.0.10/msvs/redis-plus-plus-master/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeCInformation.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeCXXInformation.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeCommonLanguageInclude.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeGenericSystem.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeInitializeConfigs.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeLanguageInformation.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeRCInformation.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeSystemSpecificInformation.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeSystemSpecificInitialize.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Compiler\CMakeCommonCompilerMacros.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Compiler\MSVC-C.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Compiler\MSVC-CXX.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Platform\Windows-MSVC-C.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Platform\Windows-MSVC-CXX.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Platform\Windows-MSVC.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Platform\Windows.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Platform\WindowsPaths.cmake;D:\vc\win_redis\redis-5.0.10\msvs\redis-plus-plus-master\CMakeFiles\3.19.1\CMakeCCompiler.cmake;D:\vc\win_redis\redis-5.0.10\msvs\redis-plus-plus-master\CMakeFiles\3.19.1\CMakeCXXCompiler.cmake;D:\vc\win_redis\redis-5.0.10\msvs\redis-plus-plus-master\CMakeFiles\3.19.1\CMakeRCCompiler.cmake;D:\vc\win_redis\redis-5.0.10\msvs\redis-plus-plus-master\CMakeFiles\3.19.1\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\vc\win_redis\redis-5.0.10\msvs\redis-plus-plus-master\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule D:/vc/win_redis/redis-5.0.10/deps/redis-plus-plus-master/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"D:\Program Files\CMake\bin\cmake.exe" -SD:/vc/win_redis/redis-5.0.10/deps/redis-plus-plus-master -BD:/vc/win_redis/redis-5.0.10/msvs/redis-plus-plus-master --check-stamp-file D:/vc/win_redis/redis-5.0.10/msvs/redis-plus-plus-master/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeCInformation.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeCXXInformation.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeCommonLanguageInclude.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeGenericSystem.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeInitializeConfigs.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeLanguageInformation.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeRCInformation.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeSystemSpecificInformation.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\CMakeSystemSpecificInitialize.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Compiler\CMakeCommonCompilerMacros.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Compiler\MSVC-C.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Compiler\MSVC-CXX.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Platform\Windows-MSVC-C.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Platform\Windows-MSVC-CXX.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Platform\Windows-MSVC.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Platform\Windows.cmake;D:\Program Files\CMake\share\cmake-3.19\Modules\Platform\WindowsPaths.cmake;D:\vc\win_redis\redis-5.0.10\msvs\redis-plus-plus-master\CMakeFiles\3.19.1\CMakeCCompiler.cmake;D:\vc\win_redis\redis-5.0.10\msvs\redis-plus-plus-master\CMakeFiles\3.19.1\CMakeCXXCompiler.cmake;D:\vc\win_redis\redis-5.0.10\msvs\redis-plus-plus-master\CMakeFiles\3.19.1\CMakeRCCompiler.cmake;D:\vc\win_redis\redis-5.0.10\msvs\redis-plus-plus-master\CMakeFiles\3.19.1\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\vc\win_redis\redis-5.0.10\msvs\redis-plus-plus-master\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\command.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\command_options.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\connection.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\connection_pool.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\crc16.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\errors.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\pipeline.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\redis.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\redis_cluster.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\reply.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\sentinel.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\shards.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\shards_pool.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\subscriber.cpp" />
+    <ClCompile Include="D:\vc\win_redis\redis-5.0.10\deps\redis-plus-plus-master\src\sw\redis++\transaction.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="D:\vc\win_redis\redis-5.0.10\msvs\redis-plus-plus-master\ZERO_CHECK.vcxproj">
+      <Project>{AEE538B2-AC64-3416-963B-20805F4BCC91}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

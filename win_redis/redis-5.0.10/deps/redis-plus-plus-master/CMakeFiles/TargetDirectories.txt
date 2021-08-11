@@ -1,0 +1,4 @@
+D:/codes/win_redis/redis-5.0.10/deps/redis-plus-plus-master/CMakeFiles/redis-plus-plus-static.dir
+D:/codes/win_redis/redis-5.0.10/deps/redis-plus-plus-master/CMakeFiles/INSTALL.dir
+D:/codes/win_redis/redis-5.0.10/deps/redis-plus-plus-master/CMakeFiles/ALL_BUILD.dir
+D:/codes/win_redis/redis-5.0.10/deps/redis-plus-plus-master/CMakeFiles/ZERO_CHECK.dir

@@ -553,6 +553,7 @@ BurrsPainter halconWorker::action(bool v2h, int limit, int grayMin, int grayMax,
 				HImage imageForWrite = ho_Image;
 				imageForWrite = imageForWrite.ZoomImageFactor(0.5, 0.5, "bilinear");
 				imageForWrite.WriteImage("jpg", 0, fileName.c_str());
+				
 				Hlong zoomWidth, zoomHeight;
 				imageForWrite.GetImageSize(&zoomWidth, &zoomHeight);
 				result.setSaveImageWidth(zoomWidth);

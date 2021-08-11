@@ -1,0 +1,23 @@
+# CMake generation dependency list for this directory.
+D:/Program Files/CMake/share/cmake-3.19/Modules/CMakeCInformation.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/CMakeCXXInformation.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/CMakeCommonLanguageInclude.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/CMakeGenericSystem.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/CMakeInitializeConfigs.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/CMakeLanguageInformation.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/CMakeRCInformation.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/CMakeSystemSpecificInformation.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/CMakeSystemSpecificInitialize.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/Compiler/CMakeCommonCompilerMacros.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/Compiler/MSVC-C.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/Compiler/MSVC-CXX.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/Platform/Windows-MSVC-C.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/Platform/Windows-MSVC-CXX.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/Platform/Windows-MSVC.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/Platform/Windows.cmake
+D:/Program Files/CMake/share/cmake-3.19/Modules/Platform/WindowsPaths.cmake
+D:/vc/win_redis/redis-5.0.10/deps/redis-plus-plus-master/CMakeLists.txt
+D:/vc/win_redis/redis-5.0.10/msvs/redis-plus-plus-master/CMakeFiles/3.19.1/CMakeCCompiler.cmake
+D:/vc/win_redis/redis-5.0.10/msvs/redis-plus-plus-master/CMakeFiles/3.19.1/CMakeCXXCompiler.cmake
+D:/vc/win_redis/redis-5.0.10/msvs/redis-plus-plus-master/CMakeFiles/3.19.1/CMakeRCCompiler.cmake
+D:/vc/win_redis/redis-5.0.10/msvs/redis-plus-plus-master/CMakeFiles/3.19.1/CMakeSystem.cmake
