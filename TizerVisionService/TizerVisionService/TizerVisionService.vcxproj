@@ -147,6 +147,9 @@
       <AdditionalLibraryDirectories>D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);C:\Program Files\MySQL\MySQL Server 8.0\lib</AdditionalLibraryDirectories>
       <AdditionalDependencies>libzmq-v141-mt-4_3_2.lib;halconcpp.lib;libmysql.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <PerUserRedirection>false</PerUserRedirection>
+      <StackReserveSize>8002165</StackReserveSize>
+      <StackCommitSize>8002165</StackCommitSize>
+      <LargeAddressAware>true</LargeAddressAware>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -229,6 +232,7 @@
     <ClInclude Include="DataCounter.h" />
     <ClInclude Include="find_burrs_finally.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="LibraryManager.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
@@ -238,6 +242,7 @@
   <ItemGroup>
     <ClCompile Include="BurrsInfoString.cpp" />
     <ClCompile Include="find_burrs_finally.cpp" />
+    <ClCompile Include="LibraryManager.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

@@ -76,6 +76,9 @@
     <ClInclude Include="..\..\..\hds\vc_thread_pool.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="LibraryManager.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="TizerVisionService.cpp">
@@ -94,6 +97,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="ZmqServer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="LibraryManager.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

@@ -11,22 +11,64 @@
 #include "../../../hds/halconUtils.h"
 #include "../../../hds/Logger.h"
 #include "../../../hds/configHelper.h"
+#include <pylon/PylonIncludes.h>
+#include <pylon/gige/GigETransportLayer.h>
+
+
+#ifdef PYLON_WIN_BUILD
+#   include <pylon/PylonGUI.h>
+
+// Include file to use pylon universal instant camera parameters.
+#	include <pylon/BaslerUniversalInstantCamera.h>
+#endif
 using namespace fastdelegate;
 class LibraryLoader;
-typedef FastDelegate3<int, char*[], const HBYTE*> SIGNAL_INT_CHAR_BYTE;
-typedef char** (*halconFunc)(int, char*[], char**);
-typedef char** (*cameraWork)(int, char* [], char**);
-typedef void (*callHalconFunc)(int, char*[], const HBYTE*);
-typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [], const HBYTE*));
+class HalconData {
+public:
+	HalconData() {
+		//to do list
+		_image = NULL;
+	}
+
+	void setImage(const HBYTE* source, size_t size) {
+		try {
+			_image = (HBYTE*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size * sizeof(HBYTE));
+			memcpy_s(_image, size, source, size);
+			_size = size;
+		}
+		catch (...) {
+			//to do list
+		}
+	}
+	
+	HBYTE* getImage() {
+		return _image;
+	}
+
+	void freeImage() {
+		if (_image != NULL)
+			HeapFree(GetProcessHeap(), 0, _image);
+	}
+private:
+	size_t _size;
+	HBYTE* _image;
+};
+
+typedef char** (*halconFunc)(int, char*[], char*, char**);
+typedef void (*cameraWork)(int, char* [], HalconData&);
+typedef void (*callHalconFunc)(int, char*[], HBYTE[]);
+typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [], HBYTE[]));
 
 
 using namespace commonfunction_c;
 
 
+
 class LibraryLoader {
 public:
 	//读取算法动态链接库
-	void runHalconLib(int argc, char* in[], const HBYTE* image) {
+	void runHalconLib(int argc, char* in[], HBYTE* image){
+		int x = argc;
 		HINSTANCE hDllInst;
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
 		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("halconLibrary", string("string"))).c_str()));
@@ -43,8 +85,8 @@ public:
 		char* source[8];
 		//设置输入参数
 		//
-		int width = 0; //实际参数需要参看相机情况，读取本地文件时设置为0
-		int height = 0; // 同上
+		int width = 1920; //实际参数需要参看相机情况，读取本地文件时设置为0
+		int height = 1080; // 同上
 		int polesWidth = 10;
 		source[0] = (char*)(&burr_limit);
 		source[1] = (char*)(&grayMin);
@@ -58,7 +100,8 @@ public:
 		char buffer[INT_HALCON_BURR_RESULT_SIZE] = { '\0' };
 		char** out = new char* ();
 		*out = &buffer[0];
-		func(6, source, out);
+		
+		func(6, source, (char*)(image), out);
 		std::cout << "get taichi result : " << **out << std::endl;
 		if (hDllInst > 0)
 			FreeLibrary(hDllInst);
@@ -67,7 +110,7 @@ public:
 
 	//读取相机动态链接库
 
-	void runCameraLib() {
+	void runCameraLib(HalconData& ho_data) {
 		HINSTANCE hDllInst;
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
 		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str()));
@@ -86,9 +129,11 @@ public:
 			return;
 		}
 		setDelegate(&LibraryLoader::runHalconLib);
-		char* out = new char[10];
-		cameraWorkFunc(0, NULL, &out);
-		delete[] out;
+
+		char* in[2];
+		in[0] = new char();
+		in[1] = new char();
+		cameraWorkFunc(0, in, ho_data);
 	}
 };
 
@@ -103,9 +148,23 @@ int main()
 		std::cout << "selected index :" << index << std::endl;
 		if (index == 0) return 0;
 		LibraryLoader ll;
-		ll.runCameraLib();
+		HalconData ho_data;
+		try {
+			ll.runCameraLib(ho_data);
+			Pylon::PylonTerminate();
+		}
+		catch (...) {
+			//to do list
+		}
 
-		//runHalconLib(index, NULL, NULL);
+		/* ↓↓↓↓↓↓以下只是测试相机采集 ， 可以屏蔽 ↓↓↓↓↓↓
+		HObject ho_Image;
+		GenImage1Extern(&ho_Image, "byte", 1920, 1080, (Hlong)(ho_data.getImage()), NULL);
+		HImage saveImage = ho_Image;
+		saveImage.WriteImage("jpg", 0, "d:/grabs/libTest.jpg");
+		 ↑↑↑↑↑↑以上只是测试相机采集 ， 可以屏蔽 ↑↑↑↑↑↑*/
+		//调用算法
+		ll.runHalconLib(index, NULL, ho_data.getImage());
 	}
 	return 0;
 }
