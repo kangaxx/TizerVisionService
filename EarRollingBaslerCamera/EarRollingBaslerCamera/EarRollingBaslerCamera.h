@@ -7,6 +7,9 @@
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
 
+// Include file to use pylon universal instant camera parameters.
+#include <pylon/BaslerUniversalInstantCamera.h>
+
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -24,38 +27,11 @@ using namespace commonfunction_c;
 
 typedef void (*callHalconFunc)(int, char* [], HBYTE []);
 static callHalconFunc halconFunction = nullptr;
-class HalconData {
-public:
-	HalconData() {
-		//to do list
-		_image = NULL;
-	}
-
-	void setImage(const HBYTE* source, size_t size) {
-		try {
-			_image = (HBYTE*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size * sizeof(HBYTE));
-			memcpy_s(_image, size, source, size);
-			_size = size;
-		}
-		catch (...) {
-			//to do list
-		}
-	}
-
-	HBYTE* getImage() {
-		return _image;
-	}
-
-	void freeImage() {
-		if (_image != NULL)
-			HeapFree(GetProcessHeap(), 0, _image);
-	}
-private:
-	size_t _size;
-	HBYTE* _image;
-};
 
 extern "C" {
-	__declspec(dllexport) void cameraWorker(int argc, char* in[], HalconData& ho_data);
+	__declspec(dllexport) HImage cameraWorker(int argc, char* in[]);
 	__declspec(dllexport) void setHalconFunction(callHalconFunc func);
 }
+
+HImage HByteToHImage(int width, int height, HBYTE* bytes);
+unsigned long grabProc(void* lpParameter);

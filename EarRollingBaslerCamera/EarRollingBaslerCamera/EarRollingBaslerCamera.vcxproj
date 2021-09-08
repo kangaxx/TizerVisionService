@@ -78,7 +78,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\basler\Development\include;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <IncludePath>D:\basler\Development\Samples\C++\include;D:\basler\Development\include;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
     <LibraryPath>D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);D:\boost_1_76_0\libs;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
     <OutDir>D:\github\TizerVisionService\LibraryLoaderConsole\x64\Debug</OutDir>
   </PropertyGroup>
