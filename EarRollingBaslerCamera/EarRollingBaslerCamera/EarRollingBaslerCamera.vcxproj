@@ -145,9 +145,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="EarRollingBaslerCamera.cpp" />
+    <ClCompile Include="easywsclient.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EarRollingBaslerCamera.h" />
+    <ClInclude Include="easywsclient.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

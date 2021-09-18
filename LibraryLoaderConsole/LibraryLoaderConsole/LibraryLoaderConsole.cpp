@@ -132,7 +132,12 @@ int main()
 		saveImage.WriteImage("jpg", 0, "d:/grabs/libTest.jpg");
 		 ↑↑↑↑↑↑以上只是测试相机采集 ， 可以屏蔽 ↑↑↑↑↑↑*/
 		//调用算法
-		ll.runHalconLib(index, NULL, image);
+		try {
+			ll.runHalconLib(index, NULL, image);
+		}
+		catch (...) {
+
+		}
 	}
 	return 0;
 }

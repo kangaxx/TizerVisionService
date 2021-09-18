@@ -315,7 +315,6 @@ void CTizerVisionServiceModule::RunMessageLoop() throw()
 		if (pTl == NULL)
 		{
 			LogEvent(L"Error: No GigE transport layer installed.");
-
 		}
 		// Enumerate devices.
 		Logger l("d:");

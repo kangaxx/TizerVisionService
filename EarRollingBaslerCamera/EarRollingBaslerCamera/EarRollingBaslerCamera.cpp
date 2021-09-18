@@ -1,5 +1,19 @@
+#include "easywsclient.hpp"
+//#include "easywsclient.cpp" // <-- include only if you don't want compile separately
+#ifdef _WIN32
+#pragma comment( lib, "ws2_32" )
+#include <WinSock2.h>
+#endif
+#include <assert.h>
+#include <stdio.h>
 #include "EarRollingBaslerCamera.h"
-
+using easywsclient::WebSocket;
+#define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
+void handle_message(const std::string& message)
+{
+	printf(">>> %s\n", message.c_str());
+	//if (message == "world") { ws->close(); }
+}
 //#define FLAG_TEST_BY_LOCAL_FILE //使用本地文件模式调试程序时取消注释
 #define INT_CAMERA_COUNT 3
 using namespace commonfunction_c;
@@ -13,7 +27,7 @@ using namespace Basler_UniversalCameraParams;
 #ifndef FLAG_TEST_BY_LOCAL_FILE
 
 static const uint32_t c_countOfImagesToGrab = 5;
-
+static 	CBaslerUniversalInstantCamera cameras[3];
 //Enumeration used for distinguishing different events.
 enum MyEvents
 {
@@ -74,74 +88,43 @@ HImage cameraWorker(int argc, char* in[])
 		// Before using any pylon methods, the pylon runtime must be initialized.
 		PylonInitialize();
 
-		// Create an example event handler. In the present case, we use one single camera handler for handling multiple camera events.
-		// The handler prints a message for each received event.
-		CSampleCameraEventHandler* pHandler1 = new CSampleCameraEventHandler;
-
-		// Create another more generic event handler printing out information about the node for which an event callback
-		// is fired.
-		CCameraEventPrinter* pHandler2 = new CCameraEventPrinter;
-		// Create an instant camera object with the first found camera device.
-		CBaslerUniversalInstantCamera cameras[INT_CAMERA_COUNT];
 		CTlFactory& tlFactory = CTlFactory::GetInstance();
 		IGigETransportLayer* pTl = dynamic_cast<IGigETransportLayer*>(tlFactory.CreateTl(Pylon::BaslerGigEDeviceClass));
 		DeviceInfoList_t devices;
 		pTl->EnumerateAllDevices(devices);
-		int cameraNum = devices.size();
 		if (pTl == NULL)
 			l.Log("Error: No GigE transport layer installed.");
+		int cameraNum = devices.size();
+		l.Log("camera num:" + commonfunction_c::BaseFunctions::Int2Str(cameraNum));
 
-		while (true) {
-			// Create and attach all Pylon Devices.
-			for (size_t i = 0; i < cameraNum; ++i)
-			{
-				cameras[i].Attach(tlFactory.CreateDevice(devices[i]));
-				String_t cameraName = cameras[i].GetDeviceInfo().GetFriendlyName();
-				//string _sn = cameras[i].GetDeviceInfo().GetSerialNumber();
+		// Create and attach all Pylon Devices.
+		for (size_t i = 0; i < cameraNum; ++i)
+		{
+			cameras[i].Attach(tlFactory.CreateDevice(devices[i]));
+			String_t cameraName = cameras[i].GetDeviceInfo().GetFriendlyName();
+			//string _sn = cameras[i].GetDeviceInfo().GetSerialNumber();
 
-				cameras[i].MaxNumBuffer = 5;
-				cameras[i].Open();
-				cameras[i].TriggerSelector.SetValue(TriggerSelector_FrameStart);
-				cameras[i].TriggerMode.SetValue(TriggerMode_On);
-				cameras[i].LineSelector.SetValue(LineSelector_Line1);
-				cameras[i].LineMode.SetValue(LineMode_Input);
-				cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
-				cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
-				// This smart pointer will receive the grab result data.
-				unsigned char* imgPtr;
-
-				//list cameras grab
-				cameras[i].StartGrabbing(1);
-				while (cameras[i].IsGrabbing())
-				{
-					try {
-						CGrabResultPtr ptrGrabResult;
-						cameras[i].RetrieveResult(5000, ptrGrabResult, TimeoutHandling_ThrowException);
-						if (ptrGrabResult->GrabSucceeded())
-						{
-
-							const HBYTE* pImageBuffer;
-							pImageBuffer = (HBYTE*)ptrGrabResult->GetBuffer();
-							HObject ho_Image;
-							int w = 1920, h = 1080;
-							GenImage1(&ho_Image, "byte", w, h, (Hlong)pImageBuffer);
-							HImage result;
-							result = ho_Image;
-							result.WriteImage("jpg", 0, "d:/grabs/trigger.jpg");
-
-						}
-						else
-						{
-							//cout << "Error: " << ptrGrabResult->GetErrorCode() << " " << ptrGrabResult->GetErrorDescription() << endl;
-						}
-					}
-					catch (...) {
-
-					}
-				}
-			}
+			cameras[i].MaxNumBuffer = 5;
+			cameras[i].Open();
+			cameras[i].TriggerSelector.SetValue(TriggerSelector_FrameStart);
+			cameras[i].TriggerMode.SetValue(TriggerMode_On);
+			cameras[i].LineSelector.SetValue(LineSelector_Line1);
+			cameras[i].LineDebouncerTimeAbs.SetValue(20000);
+			cameras[i].LineMode.SetValue(LineMode_Input);
+			cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
+			cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
 		}
-
+		Sleep(10);
+		int* pthread_num = new int[cameraNum];
+		for (size_t i = 0; i < cameraNum; ++i) {
+			pthread_num[i] = i;
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&grabProc, (void*)&pthread_num[i], 0, 0);
+		}
+		//for (int i = 0; i < 10000; ++i) {
+		while (true) {
+			Sleep(2);
+		}
+		delete[] pthread_num;
 		return HImage();
 	}
 	catch (const GenericException& e)
@@ -190,42 +173,32 @@ HImage HByteToHImage(int width, int height, HBYTE* image)
 unsigned long grabProc(void* lpParameter)
 {
 	int i = *(int*)lpParameter;
-	Logger l("log");
-	CBaslerUniversalInstantCamera camera;
-	CTlFactory& tlFactory = CTlFactory::GetInstance();
-	IGigETransportLayer* pTl = dynamic_cast<IGigETransportLayer*>(tlFactory.CreateTl(Pylon::BaslerGigEDeviceClass));
-	DeviceInfoList_t devices;
-	pTl->EnumerateAllDevices(devices);
-	if (pTl == NULL)
-		l.Log("Error: No GigE transport layer installed.");
-	while (true) {
-		// Create and attach all Pylon Devices.
+	bool isGrabbed = false;
+	Logger l("d:");
+	l.Log("grab id : " + BaseFunctions::Int2Str(i));
+	try {
+		//for (int x = 0; x < 5; x++){ //调式版，只跑几次免得锁死相机
+		int x = 0;
+		while (true) {
+			// Create and attach all Pylon Devices.
 
-			camera.Attach(tlFactory.CreateDevice(devices[i]));
-			String_t cameraName = camera.GetDeviceInfo().GetFriendlyName();
-			//string _sn = cameras[i].GetDeviceInfo().GetSerialNumber();
 
-			camera.MaxNumBuffer = 5;
-			camera.Open();
-			camera.TriggerSelector.SetValue(TriggerSelector_FrameStart);
-			camera.TriggerMode.SetValue(TriggerMode_On);
-			camera.LineSelector.SetValue(LineSelector_Line1);
-			camera.LineMode.SetValue(LineMode_Input);
-			camera.TriggerSource.SetValue(TriggerSource_Line1);
-			camera.TriggerActivation.SetValue(TriggerActivation_RisingEdge);
 			// This smart pointer will receive the grab result data.
 			unsigned char* imgPtr;
 
 			//list cameras grab
-			camera.StartGrabbing(1);
-			while (camera.IsGrabbing())
+			cameras[i].StartGrabbing(1);
+			int id = 0;
+			l.Log("start grab");
+			while (cameras[i].IsGrabbing())
 			{
 				try {
+					
 					CGrabResultPtr ptrGrabResult;
-					camera.RetrieveResult(5000, ptrGrabResult, TimeoutHandling_ThrowException);
+					cameras[i].RetrieveResult(5000, ptrGrabResult, TimeoutHandling_ThrowException);
 					if (ptrGrabResult->GrabSucceeded())
 					{
-
+						l.Log("cam:" + BaseFunctions::Int2Str(i) + " , grab success");
 						const HBYTE* pImageBuffer;
 						pImageBuffer = (HBYTE*)ptrGrabResult->GetBuffer();
 						HObject ho_Image;
@@ -233,7 +206,70 @@ unsigned long grabProc(void* lpParameter)
 						GenImage1(&ho_Image, "byte", w, h, (Hlong)pImageBuffer);
 						HImage result;
 						result = ho_Image;
-						result.WriteImage("jpg", 0, "d:/grabs/trigger.jpg");
+						string fileName = "d:/grabs/trigger_" + commonfunction_c::BaseFunctions::Int2Str(i) + "_" + commonfunction_c::BaseFunctions::Int2Str(x) + ".jpg";
+						result.WriteImage("jpg", 0, fileName.c_str());
+						x++;
+
+
+
+						/// <summary>
+						/// websocket message sended
+						/// </summary>
+						/// <param name="lpParameter"></param>
+						/// <returns></returns>
+
+						//continue;
+#ifdef _WIN32
+						INT rc;
+						WSADATA wsaData;
+
+						rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
+						if (rc) {
+							printf("WSAStartup Failed.\n");
+							return NULL;
+						}
+#endif
+						WebSocket::pointer ws = NULL;
+
+						//HObject ho_ImageLoad;
+						//ReadImage(&ho_ImageLoad, "d:/images/22_1.bmp");
+						//HImage ho_Image;
+					   // ho_Image = ho_ImageLoad;
+					   // HString type;
+					   // Hlong width, height;
+					   // unsigned char* ptr = (unsigned char*)ho_Image.GetImagePointer1(&type, &width, &height);
+					   // std::string imageStr = (char*)ptr;
+						//ws = WebSocket::from_url("ws://114.55.169.91:8126/foo");
+						ws = WebSocket::from_url("ws://127.0.0.1:5555/winding");
+						if (!ws)
+							continue;
+						//ws->send("goodbye");
+						std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"time\":\"%s\"}";
+#ifndef SEND_NO_IMAGE
+						char message[5020000];
+#else
+						char message[2048];
+						string imageStr = "0000";
+#endif
+						id++;
+						float width = 142.0 + ((float)(rand() % 30)) / 10.0;
+						float ll = 21 + ((float)(rand() % 30)) / 10.0;
+						float lr = 46 + ((float)(rand() % 30)) / 10.0;
+						float rl = 94 + ((float)(rand() % 30)) / 10.0;
+						float rr = 122 + ((float)(rand() % 30)) / 10.0;
+						sprintf_s(message, 2048, messageFmt.c_str(), id++, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
+						ws->send(message);
+						if (ws->getReadyState() != WebSocket::CLOSED) {
+							ws->poll();
+							ws->dispatch(handle_message);
+						}
+
+						delete ws;
+#ifdef _WIN32
+						WSACleanup();
+#endif
+
+
 
 					}
 					else
@@ -245,8 +281,13 @@ unsigned long grabProc(void* lpParameter)
 
 				}
 			}
+		}
 
 	}
+	catch (...) {
+
+	}
+
 
 	return 0;
 }

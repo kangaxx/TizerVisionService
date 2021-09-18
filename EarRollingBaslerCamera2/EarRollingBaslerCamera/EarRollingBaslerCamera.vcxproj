@@ -21,13 +21,13 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{ef3cc4a4-d1b5-4dec-8f82-7e62443202b4}</ProjectGuid>
-    <RootNamespace>EarRollingHalcon</RootNamespace>
+    <ProjectGuid>{f4fbdcf2-4fdb-4bfa-aae9-43556398b93a}</ProjectGuid>
+    <RootNamespace>EarRollingBaslerCamera</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -72,16 +72,15 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>D:\github\TizerVisionService\LibraryLoaderConsole\x64\Debug\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>D:\basler\Development\Samples\C++\include;D:\basler\Development\include;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <LibraryPath>D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);D:\boost_1_76_0\libs;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
     <OutDir>D:\github\TizerVisionService\LibraryLoaderConsole\x64\Debug</OutDir>
-    <IncludePath>$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(IncludePath)</IncludePath>
-    <LibraryPath>$(HALCONROOT)\lib\$(HALCONARCH);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -145,12 +144,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="earRollingHalcon.h" />
-    <ClInclude Include="easywsclient.hpp" />
+    <ClCompile Include="EarRollingBaslerCamera.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="earRollingHalcon.cpp" />
-    <ClCompile Include="easywsclient.cpp" />
+    <ClInclude Include="EarRollingBaslerCamera.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
