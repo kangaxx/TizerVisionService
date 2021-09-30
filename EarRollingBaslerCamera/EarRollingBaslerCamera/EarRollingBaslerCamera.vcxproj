@@ -145,6 +145,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="EarRollingBaslerCamera.cpp" />
+    <ClCompile Include="Ear_Edge_Locate_Harris.cpp" />
     <ClCompile Include="easywsclient.cpp" />
   </ItemGroup>
   <ItemGroup>

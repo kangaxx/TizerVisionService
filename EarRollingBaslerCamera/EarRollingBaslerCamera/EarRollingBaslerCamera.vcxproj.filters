@@ -21,6 +21,9 @@
     <ClCompile Include="easywsclient.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="Ear_Edge_Locate_Harris.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EarRollingBaslerCamera.h">
