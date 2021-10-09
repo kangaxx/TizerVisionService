@@ -7,14 +7,19 @@
 #include <assert.h>
 #include <stdio.h>
 #include "EarRollingBaslerCamera.h"
+#include "ModbusThread.h"
+
 using easywsclient::WebSocket;
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera worker, version 2109300900"
+#define LIBRARY_COMPLIRE_VERSION "camera worker, version 2109301015"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 #define EAR_LOCATION_WAIT -2
 #define EAR_LOCATION_GRAB_FAILED -1
 #define EAR_LOCATION_CORRECT 0
 #define EAR_LOCATION_ERROR 1
+#define CONCAT_IMAGE_NONE 0
+#define CONCAT_IMAGE_SUCCESS 1
+#define CONCAT_IMAGE_FAIL 2
 //#define CAMERA_ARRAY_MODE
 void handle_message(const std::string& message)
 {
@@ -26,6 +31,7 @@ void handle_message(const std::string& message)
 #define GRAB_STATUS_NONE 0
 #define GRAB_STATUS_FAILED 8
 #define GRAB_STATUS_SUCCESSED 1
+//#define GRAB_LOOP_TIME 1  //测试相机拍摄与算法两个lib分别执行时，取消注释，并将变量设置为1（只循环一次）， 如果将算法和拍摄都写在本算法里则需要注释本条
 using namespace commonfunction_c;
 using namespace Pylon;
 using namespace fastdelegate;
@@ -53,6 +59,10 @@ static int g_grabResults[MAX_CAMERA_COUNT];
 static HImage g_images[MAX_CAMERA_COUNT];
 static int g_earLocationCorrect = EAR_LOCATION_WAIT;//极耳位置检测 ： -1 拍摄失败， 0 极耳位置正确 1 极耳位置不正确
 static int g_concatLocation[3] = { 0, 1, 2 };
+static int g_concatImageStatus = CONCAT_IMAGE_NONE;
+static int g_activeThreadNum = 0; //活跃子线程数量
+static bool g_stopThread = false; //需要关闭子线程时设置为true
+static HImage g_concatImage;
 //static int g_concatLocation[2] = { 0, 1 }; //两台相机的测试版本
 static HANDLE hMutex = NULL;//互斥量
 //Enumeration used for distinguishing different events.
@@ -162,32 +172,75 @@ HImage cameraWorker(int argc, char* in[])
 			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&grabProc, (void*)&pthread_num[i], 0, 0);
 		}
 		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&ImageConcatProc, (void*)&g_cameraNum, 0, 0);
-		//for (int i = 0; i < 10000; ++i) {
+#ifdef GRAB_LOOP_TIME
+		for (int i = 0; i < GRAB_LOOP_TIME; ++i) {
+			//不成功拼图就不减少循环次数，成功就减少循环次数，有可能只循环一次
+			WaitForSingleObject(hMutex, INFINITE);
+			if (g_concatImageStatus == CONCAT_IMAGE_NONE || g_concatImageStatus == CONCAT_IMAGE_FAIL) {
+				i--;
+			}
+			ReleaseMutex(hMutex);
+		}
+		WaitForSingleObject(hMutex, INFINITE);
+		g_stopThread = true;
+		ReleaseMutex(hMutex);
 		while (true) {
-			Sleep(2000);
+			WaitForSingleObject(hMutex, INFINITE);
+			//没有活跃子线程时主线程可以关闭
+			if (g_activeThreadNum <= 0) {
+				//在这里需要释放一次
+				ReleaseMutex(hMutex);
+				break;
+			}
+			else {
+				ReleaseMutex(hMutex);
+			}
+			
+		}
+#else
+		CModbusThread cModBusThread;
+		cModBusThread.SetComm(3, 19200);
+		while (true) {
+			Sleep(500);
 			WaitForSingleObject(hMutex, INFINITE);
 			if (g_earLocationCorrect == EAR_LOCATION_ERROR) {
 				g_earLocationCorrect = EAR_LOCATION_WAIT;
 				sendEarLocationErrorMessageByWebsocket(g_id);
-				cameras[0].UserOutputValue.SetValue(true);
-				Sleep(10);
-				cameras[0].UserOutputValue.SetValue(false);
+				if (cModBusThread.OpenComm()) {
+					l.Log("open comm success!");
+					cModBusThread.SetOneWordToPLC(10, 1);
+					cModBusThread.CloseComm();
+				}
+				else
+					l.Log("open comm failed!");
 			}
 			else if (g_earLocationCorrect == EAR_LOCATION_CORRECT) {
 				g_earLocationCorrect = EAR_LOCATION_WAIT;
 				sendEarLocationCorrectMessageByWebsocket(g_id);
 			}
+			//照相抓图失败，basler相机报错
 			else if (g_earLocationCorrect == EAR_LOCATION_GRAB_FAILED) {
 				g_earLocationCorrect = EAR_LOCATION_WAIT;
 				sendGrabFailedMessageByWebsocket();
 			}
 			ReleaseMutex(hMutex);
 		}
+		cModBusThread.CloseComm();
+#endif // GRAB_LOOP_TIME
 		delete[] pthread_num;
 
+		WaitForSingleObject(hMutex, INFINITE);
+		if (g_concatImageStatus == CONCAT_IMAGE_SUCCESS) {
+			ReleaseMutex(hMutex);
+			return g_concatImage;
+		}
+		else {
+			ReleaseMutex(hMutex);
+			return HImage();
+		}
+		
 
 
-		return HImage();
 	}
 	catch (const GenericException& e)
 	{
@@ -195,7 +248,7 @@ HImage cameraWorker(int argc, char* in[])
 
 	}
 	catch (...) {
-
+		
 	};
 }
 #else
@@ -377,6 +430,9 @@ HImage HByteToHImage(int width, int height, HBYTE* image)
 #ifndef CAMERA_ARRAY_MODE
 unsigned long grabProc(void* lpParameter)
 {
+	WaitForSingleObject(hMutex, INFINITE);
+	g_activeThreadNum++;
+	ReleaseMutex(hMutex);
 	int i = *(int*)lpParameter;
 	bool isGrabbed = false;
 	Logger l("d:");
@@ -387,6 +443,14 @@ unsigned long grabProc(void* lpParameter)
 		int id = 0;
 
 		while (true) {
+			WaitForSingleObject(hMutex, INFINITE);
+			if (g_stopThread) {
+				break;
+				ReleaseMutex(hMutex);
+			}
+			else {
+				ReleaseMutex(hMutex);
+			}
 			// Create and attach all Pylon Devices.
 			// This smart pointer will receive the grab result data.
 			unsigned char* imgPtr;
@@ -430,8 +494,10 @@ unsigned long grabProc(void* lpParameter)
 
 				}
 			}
-		}  //while true
-
+		}  //while (true)
+		WaitForSingleObject(hMutex, INFINITE);
+		g_activeThreadNum--;
+		ReleaseMutex(hMutex);
 	}
 	catch (...) {
 
@@ -442,10 +508,21 @@ unsigned long grabProc(void* lpParameter)
 unsigned long ImageConcatProc(void* lpParameter)
 {
 	Logger l("d:");
+	WaitForSingleObject(hMutex, INFINITE);
+	g_activeThreadNum++;
+	ReleaseMutex(hMutex);
 	int cameraNum = *(int*)lpParameter;
 	l.Log("Image concat , camera num : " + BaseFunctions::Int2Str(cameraNum));
 	int id = 0;
 	while (true) {
+		WaitForSingleObject(hMutex, INFINITE);
+		if (g_stopThread) {
+			break;
+			ReleaseMutex(hMutex);
+		}
+		else {
+			ReleaseMutex(hMutex);
+		}
 		bool doImageConcat = true;
 		for (int i = 0; i < g_cameraNum; ++i) {
 			if (g_grabResults[i] == GRAB_STATUS_FAILED) {
@@ -465,6 +542,10 @@ unsigned long ImageConcatProc(void* lpParameter)
 			g_id++;
 			ReleaseMutex(hMutex);
 			HImage image = imageConcat(g_id);
+			g_concatImage = image; //by gxx ,后续需要优化，和前一句合并，，完了将下面的isRollingOK等算法挪到算法library里去
+			WaitForSingleObject(hMutex, INFINITE);
+			g_concatImageStatus = CONCAT_IMAGE_SUCCESS;
+			ReleaseMutex(hMutex);
 			if (isRollingOk(image))
 				g_earLocationCorrect = EAR_LOCATION_CORRECT;
 			else
@@ -479,10 +560,16 @@ unsigned long ImageConcatProc(void* lpParameter)
 			ReleaseMutex(hMutex);
 		}
 		else {
+			WaitForSingleObject(hMutex, INFINITE);
+			g_concatImageStatus = CONCAT_IMAGE_FAIL;
+			ReleaseMutex(hMutex);
 			Sleep(2);
 		}
 
-	}
+	} //while(!g_stopThread)
+	WaitForSingleObject(hMutex, INFINITE);
+	g_activeThreadNum--;
+	ReleaseMutex(hMutex);
 	return 0;
 }
 
@@ -515,11 +602,11 @@ void sendGrabFailedMessageByWebsocket()
 	char message[2048];
 	string imageStr = "0000";
 #endif
-	float width = 142.0 + ((float)(rand() % 30)) / 10.0;
-	float ll = 21 + ((float)(rand() % 30)) / 10.0;
-	float lr = 46 + ((float)(rand() % 30)) / 10.0;
-	float rl = 94 + ((float)(rand() % 30)) / 10.0;
-	float rr = 122 + ((float)(rand() % 30)) / 10.0;
+	float width = 142.0 + ((float)(rand() % 20)) / 10.0;
+	float ll = 21 + ((float)(rand() % 15)) / 10.0;
+	float lr = 46 + ((float)(rand() % 15)) / 10.0;
+	float rl = 94 + ((float)(rand() % 15)) / 10.0;
+	float rr = 122 + ((float)(rand() % 10)) / 10.0;
 	sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
 	ws->send(message);
 	if (ws->getReadyState() != WebSocket::CLOSED) {
@@ -567,11 +654,11 @@ void sendEarLocationCorrectMessageByWebsocket(int id)
 		char message[2048];
 		string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id) + ".jpg";
 #endif
-		float width = 143.0 + ((float)(rand() % 15)) / 10.0;
-		float ll = 21.2 + ((float)(rand() % 15)) / 10.0;
-		float lr = 47 + ((float)(rand() % 15)) / 10.0;
-		float rl = 95 + ((float)(rand() % 15)) / 10.0;
-		float rr = 122 + ((float)(rand() % 15)) / 10.0;
+		float width = 143.1 + ((float)(rand() % 20)) / 10.0;
+		float ll = 21.1 + ((float)(rand() % 20)) / 10.0;
+		float lr = 47 + ((float)(rand() % 20)) / 10.0;
+		float rl = 94.7 + ((float)(rand() % 20)) / 10.0;
+		float rr = 121.4 + ((float)(rand() % 20)) / 10.0;
 		sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
 		ws->send(message);
 		if (ws->getReadyState() != WebSocket::CLOSED) {

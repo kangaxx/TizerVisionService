@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{f4fbdcf2-4fdb-4bfa-aae9-43556398b93a}</ProjectGuid>
-    <RootNamespace>EarRollingBaslerCamera</RootNamespace>
+    <ProjectGuid>{8937cf0b-b8d7-42da-975b-88dd3ab45448}</ProjectGuid>
+    <RootNamespace>CommLibrary</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -40,7 +40,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -78,9 +78,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\basler\Development\Samples\C++\include;D:\basler\Development\include;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
-    <LibraryPath>D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);D:\boost_1_76_0\libs;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
-    <OutDir>D:\github\TizerVisionService\LibraryLoaderConsole\x64\Debug</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -123,8 +120,6 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(HALCONROOT)\lib\$(HALCONARCH)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>winmm.lib;halconcpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -144,22 +139,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="EarRollingBaslerCamera.cpp" />
-    <ClCompile Include="Ear_Edge_Locate_Harris.cpp" />
-    <ClCompile Include="easywsclient.cpp" />
-    <ClCompile Include="Modbus\crc16.cpp" />
-    <ClCompile Include="Modbus\LocalModbus.cpp" />
-    <ClCompile Include="Modbus\modbus.cpp" />
+    <ClInclude Include="CommLibrary.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="EarRollingBaslerCamera.h" />
-    <ClInclude Include="easywsclient.hpp" />
-    <ClInclude Include="ModbusThread.h" />
-    <ClInclude Include="Modbus\Common.h" />
-    <ClInclude Include="Modbus\crc16.h" />
-    <ClInclude Include="Modbus\LocalModbus.h" />
-    <ClInclude Include="Modbus\modbus.h" />
-    <ClInclude Include="Modbus\ModbusMessages.h" />
+    <ClCompile Include="CommLibrary.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
