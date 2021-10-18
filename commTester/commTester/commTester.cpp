@@ -9,8 +9,10 @@ int main()
     CModbusThread mbt;
     mbt.SetComm(3, 19200);
     if (mbt.OpenComm()) {
-        Sleep(500);
-        mbt.SetOneWordToPLC(10, 1);
+        for (int i = 0; i < 1; ++i) {
+            Sleep(2500);
+            mbt.SetOneWordToPLC(10, 1);
+        }
         mbt.CloseComm();
         std::cout << "open comm success!\n";
     }

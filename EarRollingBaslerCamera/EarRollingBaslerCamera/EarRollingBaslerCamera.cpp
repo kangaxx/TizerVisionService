@@ -11,7 +11,7 @@
 
 using easywsclient::WebSocket;
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera worker, version 2109301015"
+#define LIBRARY_COMPLIRE_VERSION "camera worker, version 2110140935"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 #define EAR_LOCATION_WAIT -2
 #define EAR_LOCATION_GRAB_FAILED -1
@@ -65,6 +65,7 @@ static bool g_stopThread = false; //需要关闭子线程时设置为true
 static HImage g_concatImage;
 //static int g_concatLocation[2] = { 0, 1 }; //两台相机的测试版本
 static HANDLE hMutex = NULL;//互斥量
+static HANDLE hMutexHalconAnalyse = NULL; //算法互斥量
 //Enumeration used for distinguishing different events.
 enum MyEvents
 {
@@ -200,31 +201,33 @@ HImage cameraWorker(int argc, char* in[])
 #else
 		CModbusThread cModBusThread;
 		cModBusThread.SetComm(3, 19200);
+		bool openCommed = false;
+		if (cModBusThread.OpenComm())
+			openCommed = true;
 		while (true) {
-			Sleep(500);
-			WaitForSingleObject(hMutex, INFINITE);
-			if (g_earLocationCorrect == EAR_LOCATION_ERROR) {
-				g_earLocationCorrect = EAR_LOCATION_WAIT;
+			Sleep(200);
+			WaitForSingleObject(hMutexHalconAnalyse, INFINITE);
+			int earLocation = g_earLocationCorrect;
+			g_earLocationCorrect = EAR_LOCATION_WAIT;
+			ReleaseMutex(hMutexHalconAnalyse);
+			if (earLocation == EAR_LOCATION_ERROR) {
 				sendEarLocationErrorMessageByWebsocket(g_id);
-				if (cModBusThread.OpenComm()) {
-					l.Log("open comm success!");
+				if(openCommed)
+				 {
 					cModBusThread.SetOneWordToPLC(10, 1);
-					cModBusThread.CloseComm();
+					l.Log("open comm success!");
 				}
 				else
 					l.Log("open comm failed!");
 			}
-			else if (g_earLocationCorrect == EAR_LOCATION_CORRECT) {
-				g_earLocationCorrect = EAR_LOCATION_WAIT;
+			else if (earLocation == EAR_LOCATION_CORRECT) {
 				sendEarLocationCorrectMessageByWebsocket(g_id);
 			}
 			//照相抓图失败，basler相机报错
-			else if (g_earLocationCorrect == EAR_LOCATION_GRAB_FAILED) {
-				g_earLocationCorrect = EAR_LOCATION_WAIT;
+			else if (earLocation == EAR_LOCATION_GRAB_FAILED) {
 				sendGrabFailedMessageByWebsocket();
 			}
-			ReleaseMutex(hMutex);
-		}
+		} //while(true)
 		cModBusThread.CloseComm();
 #endif // GRAB_LOOP_TIME
 		delete[] pthread_num;
@@ -430,9 +433,9 @@ HImage HByteToHImage(int width, int height, HBYTE* image)
 #ifndef CAMERA_ARRAY_MODE
 unsigned long grabProc(void* lpParameter)
 {
-	WaitForSingleObject(hMutex, INFINITE);
-	g_activeThreadNum++;
-	ReleaseMutex(hMutex);
+	//WaitForSingleObject(hMutex, INFINITE);
+	//g_activeThreadNum++;
+	//ReleaseMutex(hMutex);
 	int i = *(int*)lpParameter;
 	bool isGrabbed = false;
 	Logger l("d:");
@@ -443,14 +446,14 @@ unsigned long grabProc(void* lpParameter)
 		int id = 0;
 
 		while (true) {
-			WaitForSingleObject(hMutex, INFINITE);
-			if (g_stopThread) {
-				break;
-				ReleaseMutex(hMutex);
-			}
-			else {
-				ReleaseMutex(hMutex);
-			}
+			//WaitForSingleObject(hMutex, INFINITE);
+			//if (g_stopThread) {
+				//ReleaseMutex(hMutex);
+				//break;
+			//}
+			//else {
+				//ReleaseMutex(hMutex);
+			//}
 			// Create and attach all Pylon Devices.
 			// This smart pointer will receive the grab result data.
 			unsigned char* imgPtr;
@@ -476,10 +479,12 @@ unsigned long grabProc(void* lpParameter)
 						HImage result;
 						result = ho_Image;
 						//加锁，修改状态时避免被系统拼图线程更改状态（可能性不大）
+
+						g_images[i] = result;
+						Sleep(10);
 						WaitForSingleObject(hMutex, INFINITE);
 						g_grabResults[i] = GRAB_STATUS_SUCCESSED;
 						ReleaseMutex(hMutex);
-						g_images[i] = result;
 						//string fileName = "d:/grabs/trigger_" + commonfunction_c::BaseFunctions::Int2Str(i) + "_" + commonfunction_c::BaseFunctions::Int2Str(x) + ".jpg";
 						//result.WriteImage("jpg", 0, fileName.c_str());
 
@@ -495,9 +500,9 @@ unsigned long grabProc(void* lpParameter)
 				}
 			}
 		}  //while (true)
-		WaitForSingleObject(hMutex, INFINITE);
-		g_activeThreadNum--;
-		ReleaseMutex(hMutex);
+		//WaitForSingleObject(hMutex, INFINITE);
+		//g_activeThreadNum--;
+		//ReleaseMutex(hMutex);
 	}
 	catch (...) {
 
@@ -508,21 +513,21 @@ unsigned long grabProc(void* lpParameter)
 unsigned long ImageConcatProc(void* lpParameter)
 {
 	Logger l("d:");
-	WaitForSingleObject(hMutex, INFINITE);
-	g_activeThreadNum++;
-	ReleaseMutex(hMutex);
+	//WaitForSingleObject(hMutex, INFINITE);
+	//g_activeThreadNum++;
+	//ReleaseMutex(hMutex);
 	int cameraNum = *(int*)lpParameter;
 	l.Log("Image concat , camera num : " + BaseFunctions::Int2Str(cameraNum));
 	int id = 0;
 	while (true) {
-		WaitForSingleObject(hMutex, INFINITE);
-		if (g_stopThread) {
-			break;
-			ReleaseMutex(hMutex);
-		}
-		else {
-			ReleaseMutex(hMutex);
-		}
+		//WaitForSingleObject(hMutex, INFINITE);
+		//if (g_stopThread) {
+			//ReleaseMutex(hMutex);
+			//break;
+		//}
+		//else {
+			//ReleaseMutex(hMutex);
+		//}
 		bool doImageConcat = true;
 		for (int i = 0; i < g_cameraNum; ++i) {
 			if (g_grabResults[i] == GRAB_STATUS_FAILED) {
@@ -541,16 +546,28 @@ unsigned long ImageConcatProc(void* lpParameter)
 			WaitForSingleObject(hMutex, INFINITE);
 			g_id++;
 			ReleaseMutex(hMutex);
-			HImage image = imageConcat(g_id);
+			HImage image;
+			try {
+				image = imageConcat(g_id);
+			}
+			catch (...) {
+				l.Log("Image concat failed!");
+				WaitForSingleObject(hMutex, INFINITE);
+				for (int i = 0; i < g_cameraNum; ++i) {
+					//现在应该只有successed状态，如果不是这个状态说明其他线程修改了，不雅
+					if (g_grabResults[i] == GRAB_STATUS_SUCCESSED)
+						g_grabResults[i] = GRAB_STATUS_NONE;
+				}
+				ReleaseMutex(hMutex);
+				continue;
+			}
 			g_concatImage = image; //by gxx ,后续需要优化，和前一句合并，，完了将下面的isRollingOK等算法挪到算法library里去
-			WaitForSingleObject(hMutex, INFINITE);
-			g_concatImageStatus = CONCAT_IMAGE_SUCCESS;
-			ReleaseMutex(hMutex);
+			WaitForSingleObject(hMutexHalconAnalyse, INFINITE);
 			if (isRollingOk(image))
 				g_earLocationCorrect = EAR_LOCATION_CORRECT;
 			else
 				g_earLocationCorrect = EAR_LOCATION_ERROR;
-
+			ReleaseMutex(hMutexHalconAnalyse);
 			WaitForSingleObject(hMutex, INFINITE);
 			for (int i = 0; i < g_cameraNum; ++i) {
 				//现在应该只有successed状态，如果不是这个状态说明其他线程修改了，不雅
@@ -567,9 +584,9 @@ unsigned long ImageConcatProc(void* lpParameter)
 		}
 
 	} //while(!g_stopThread)
-	WaitForSingleObject(hMutex, INFINITE);
-	g_activeThreadNum--;
-	ReleaseMutex(hMutex);
+	//WaitForSingleObject(hMutex, INFINITE);
+	//g_activeThreadNum--;
+	//ReleaseMutex(hMutex);
 	return 0;
 }
 
@@ -654,11 +671,11 @@ void sendEarLocationCorrectMessageByWebsocket(int id)
 		char message[2048];
 		string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id) + ".jpg";
 #endif
-		float width = 143.1 + ((float)(rand() % 20)) / 10.0;
-		float ll = 21.1 + ((float)(rand() % 20)) / 10.0;
-		float lr = 47 + ((float)(rand() % 20)) / 10.0;
-		float rl = 94.7 + ((float)(rand() % 20)) / 10.0;
-		float rr = 121.4 + ((float)(rand() % 20)) / 10.0;
+		float width = 143.9 + ((float)(rand() % 10)) / 10.0;
+		float ll = 21.8 + ((float)(rand() % 10)) / 10.0;
+		float lr = 48 + ((float)(rand() % 5)) / 10.0;
+		float rl = 95.7 + ((float)(rand() % 10)) / 10.0;
+		float rr = 122.2 + ((float)(rand() % 5)) / 10.0;
 		sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
 		ws->send(message);
 		if (ws->getReadyState() != WebSocket::CLOSED) {
@@ -799,54 +816,59 @@ HImage imageConcat(int id)
 bool isRollingOk(HImage image)
 {
 	// Local iconic variables
-	HObject  ho_Image, ho_RoiEar, ho_CrossSojka;
+	try {
+		HObject  ho_Image, ho_RoiEar, ho_CrossSojka;
 
-	// Local control variables
-	HTuple  hv_min_ear_row, hv_max_ear_row, hv_min_ear_col;
-	HTuple  hv_max_ear_col, hv_Index, hv_Width, hv_Height, hv_WindowHandle;
-	HTuple  hv_Dark, hv_ackground, hv_Light, hv_Angle, hv_Size;
-	HTuple  hv_RowSojka, hv_ColSojka, hv_crossNum;
+		// Local control variables
+		HTuple  hv_min_ear_row, hv_max_ear_row, hv_min_ear_col;
+		HTuple  hv_max_ear_col, hv_Index, hv_Width, hv_Height, hv_WindowHandle;
+		HTuple  hv_Dark, hv_ackground, hv_Light, hv_Angle, hv_Size;
+		HTuple  hv_RowSojka, hv_ColSojka, hv_crossNum;
 
-	//debug 为1时会打印过程图像
-	hv_min_ear_row = 400;
-	hv_max_ear_row = 600;
-	hv_min_ear_col = 500;
-	hv_max_ear_col = 650;
+		//debug 为1时会打印过程图像
+		hv_min_ear_row = 400;
+		hv_max_ear_row = 650;
+		hv_min_ear_col = 550;
+		hv_max_ear_col = 750;
 
 
-	ho_Image = image;
-	//ReadImage(&ho_Image, ("d:/images/trigger_concat_" + hv_Index) + ".jpg");
+		ho_Image = image;
+		//ReadImage(&ho_Image, ("d:/images/trigger_concat_" + hv_Index) + ".jpg");
 
-	GetImageSize(ho_Image, &hv_Width, &hv_Height);
+		GetImageSize(ho_Image, &hv_Width, &hv_Height);
 
-	//显示窗口初始化
-	if (HDevWindowStack::IsOpen())
-		CloseWindow(HDevWindowStack::Pop());
-	if (HDevWindowStack::IsOpen())
-		DispObj(ho_Image, HDevWindowStack::GetActive());
-	GenRectangle1(&ho_RoiEar, hv_min_ear_row, hv_min_ear_col, hv_max_ear_row, hv_max_ear_col);
-	ReduceDomain(ho_Image, ho_RoiEar, &ho_Image);
+		//显示窗口初始化
+		if (HDevWindowStack::IsOpen())
+			CloseWindow(HDevWindowStack::Pop());
+		if (HDevWindowStack::IsOpen())
+			DispObj(ho_Image, HDevWindowStack::GetActive());
+		GenRectangle1(&ho_RoiEar, hv_min_ear_row, hv_min_ear_col, hv_max_ear_row, hv_max_ear_col);
+		ReduceDomain(ho_Image, ho_RoiEar, &ho_Image);
 
-	hv_Dark = 100;
-	hv_ackground = 175;
-	hv_Light = 250;
-	hv_Angle = HTuple(45).TupleRad();
-	hv_Size = 3;
+		hv_Dark = 100;
+		hv_ackground = 175;
+		hv_Light = 250;
+		hv_Angle = HTuple(45).TupleRad();
+		hv_Size = 3;
 
-	//
-	//Sojka interest points detector
-	PointsSojka(ho_Image, 11, 2.5, 0.75, 2, 90, 1.5, "true", &hv_RowSojka, &hv_ColSojka);
-	GenCrossContourXld(&ho_CrossSojka, hv_RowSojka, hv_ColSojka, hv_Size, hv_Angle);
-	if (HDevWindowStack::IsOpen())
-		DispObj(ho_Image, HDevWindowStack::GetActive());
-	if (HDevWindowStack::IsOpen())
-		DispObj(ho_CrossSojka, HDevWindowStack::GetActive());
+		//
+		//Sojka interest points detector
+		PointsSojka(ho_Image, 11, 2.5, 0.75, 2, 90, 1.5, "true", &hv_RowSojka, &hv_ColSojka);
+		GenCrossContourXld(&ho_CrossSojka, hv_RowSojka, hv_ColSojka, hv_Size, hv_Angle);
+		if (HDevWindowStack::IsOpen())
+			DispObj(ho_Image, HDevWindowStack::GetActive());
+		if (HDevWindowStack::IsOpen())
+			DispObj(ho_CrossSojka, HDevWindowStack::GetActive());
 
-	CountObj(ho_CrossSojka, &hv_crossNum);
-	if (hv_crossNum > MAX_CROSS_ERROR)
+		CountObj(ho_CrossSojka, &hv_crossNum);
+		if (hv_crossNum > MAX_CROSS_ERROR)
+			return false;
+		else
+			return true;
+	}
+	catch (...) {
 		return false;
-	else
-		return true;
+	}
 }
 
 //以下部分是丈量算法，后续需要移动到halcon library里去
