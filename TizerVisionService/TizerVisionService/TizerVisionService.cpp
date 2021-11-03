@@ -46,6 +46,9 @@ HANDLE ZmqServer::hMutex = CreateMutexW(NULL, FALSE, NULL);
 HANDLE ZmqServer::m_hThread = NULL;
 DWORD ZmqServer::m_dwThreadID = NULL;
 
+using tcp = boost::asio::ip::tcp;  // from <boost/asio/ip.tcp.hpp>
+namespace websocket = boost::beast::websocket;  // from <boost/beast/websocket.hpp>
+
 class HalconData {
 public:
 	HalconData() {

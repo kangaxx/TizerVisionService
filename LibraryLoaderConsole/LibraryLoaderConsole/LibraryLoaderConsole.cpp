@@ -13,7 +13,7 @@
 #include "../../../hds/configHelper.h"
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
-
+#define PROGRAM_COMPLIRE_VERSION "camera worker, version 2111011630"
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -25,12 +25,12 @@ using namespace fastdelegate;
 using namespace HalconCpp;
 class LibraryLoader;
 
-
+void delegateFunction(LPVOID l);
 typedef char** (*halconFunc)(int, char*[], HImage, char**);
 typedef HImage (*cameraWork)(int, char* []);
-typedef void (*callHalconFunc)(int, char*[], HBYTE[]);
+typedef void (*callHalconFunc)(LPVOID);
 typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [], HBYTE[]));
-
+typedef void (*setHalconFunction)(callHalconFunc);
 
 using namespace commonfunction_c;
 
@@ -96,7 +96,14 @@ public:
 			throw "Load camera library function failed!";
 		}
 
-
+		setHalconFunction setFunc = NULL;
+		setFunc = (setHalconFunction)GetProcAddress(hDllInst, "setHalconFunction");
+		if (setFunc == 0) {
+			FreeLibrary(hDllInst);
+			throw "Load camera library set halcon function failed!";
+		}
+		//测试委托
+		setFunc(delegateFunction);
 		char* in[2];
 		in[0] = new char();
 		in[1] = new char();
@@ -144,10 +151,9 @@ int main()
 
 
 
-void newParamFunc(char& out) {
-	int* result = (int*)(&out);
-	*result++ = 1;
-	*result++ = 2;
+void delegateFunction(LPVOID l) {
+	int result = *(int*)(l);
+	cout << "from dll , result is : " << result << endl;
 	return;
 }
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单

@@ -10,7 +10,10 @@
 
 #include <string>
 #include <vector>
-
+#define POLL_ROOL_RESULT_NULL '\0' //ws没有正常返回
+#define POLL_ROOL_RESULT_NG '0' //ws返回 ng
+#define POLL_ROOL_RESULT_OK '1' //ws返回 ok
+#define POLL_ROOL_RESULT_CAMERA_ERROR '9' //ws相机故障
 namespace easywsclient {
 
 struct Callback_Imp { virtual void operator()(const std::string& message) = 0; };
@@ -28,7 +31,7 @@ class WebSocket {
 
     // Interfaces:
     virtual ~WebSocket() { }
-    virtual void poll(int timeout = 0) = 0; // timeout in milliseconds
+    virtual char poll(int timeout = 0) = 0; // timeout in milliseconds
     virtual void send(const std::string& message) = 0;
     virtual void sendBinary(const std::string& message) = 0;
     virtual void sendBinary(const std::vector<uint8_t>& message) = 0;

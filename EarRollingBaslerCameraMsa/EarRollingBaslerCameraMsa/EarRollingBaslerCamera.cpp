@@ -1,4 +1,3 @@
-#include "easywsclient.hpp"
 //#include "easywsclient.cpp" // <-- include only if you don't want compile separately
 #ifdef _WIN32
 #pragma comment( lib, "ws2_32" )
@@ -6,12 +5,15 @@
 #endif
 #include <assert.h>
 #include <stdio.h>
+#include <boost/beast/core.hpp>
+#include <boost/beast/websocket.hpp>
+#include <boost/asio/connect.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include "EarRollingBaslerCamera.h"
-#include "ModbusThread.h"
-
-using easywsclient::WebSocket;
+using namespace Pylon;
+using namespace Basler_UniversalCameraParams;
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera worker, version 2111011630"
+#define LIBRARY_COMPLIRE_VERSION "msa camera worker, version 2110281630"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 #define EAR_LOCATION_WAIT -2
 #define EAR_LOCATION_GRAB_FAILED -1
@@ -22,11 +24,10 @@ using easywsclient::WebSocket;
 #define CONCAT_IMAGE_FAIL 2
 #define ROLLING_RESULT_NG false
 #define ROLLING_RESULT_OK true
-
 //#define CAMERA_ARRAY_MODE
 void handle_message(const std::string& message)
 {
-	printf(">>> %s\n", message.c_str());
+	//printf(">>> %s\n", message.c_str());
 	//if (message == "world") { ws->close(); }
 }
 //#define FLAG_TEST_BY_LOCAL_FILE //使用本地文件模式调试程序时取消注释
@@ -34,25 +35,6 @@ void handle_message(const std::string& message)
 #define GRAB_STATUS_NONE 0
 #define GRAB_STATUS_FAILED 8
 #define GRAB_STATUS_SUCCESSED 1
-//#define GRAB_LOOP_TIME 1  //测试相机拍摄与算法两个lib分别执行时，取消注释，并将变量设置为1（只循环一次）， 如果将算法和拍摄都写在本算法里则需要注释本条
-using namespace commonfunction_c;
-using namespace Pylon;
-using namespace fastdelegate;
-using namespace Basler_UniversalCameraParams;
-// Include files used by samples.
-#include <ConfigurationEventPrinter.h>
-#include <CameraEventPrinter.h>
-#include <pylon/_BaslerUniversalCameraParams.h>
-#include <pylon/BaslerUniversalInstantCameraArray.h>
-#include <pylon/Info.h>
-#include <pylon/gige/GigETransportLayer.h>
-#include <pylon/gige/ActionTriggerConfiguration.h>
-#include <pylon/gige/BaslerGigEDeviceInfo.h>
-
-
-#ifndef CAMERA_ARRAY_MODE
-#ifndef FLAG_TEST_BY_LOCAL_FILE
-
 static const uint32_t c_countOfImagesToGrab = 5;
 static int g_cameraNum = 0;
 //static int* g_cameraGrabFlag;
@@ -69,69 +51,15 @@ static HImage g_concatImage;
 //static int g_concatLocation[2] = { 0, 1 }; //两台相机的测试版本
 static HANDLE hMutex = NULL;//互斥量
 static HANDLE hMutexHalconAnalyse = NULL; //算法互斥量
-static LPVOID g_shareMemory;
-static HANDLE g_handle;
-//Enumeration used for distinguishing different events.
-enum MyEvents
-{
-	eMyExposureEndEvent = 100,
-	eMyEventOverrunEvent = 200
-	// More events can be added here.
-};
+static time_t g_grabTimeStart; //用以计算拍摄的起始时间
+static float g_coreWidth, g_ll, g_lr, g_rl, g_rr;
 
-//handler for camera events.
-class CSampleCameraEventHandler : public CBaslerUniversalCameraEventHandler
-{
-public:
-	// Only very short processing tasks should be performed by this method. Otherwise, the event notification will block the
-	// processing of images.
-	virtual void OnCameraEvent(CBaslerUniversalInstantCamera& camera, intptr_t userProvidedId, GenApi::INode* /* pNode */)
-	{
-		Logger l("d:");
-		l.Log("OnCameraEvent");
-		std::cout << std::endl;
-
-		switch (userProvidedId)
-		{
-		case eMyExposureEndEvent: // Exposure End event
-			if (camera.EventExposureEndFrameID.IsReadable()) // Applies to cameras based on SFNC 2.0 or later, e.g, USB cameras
-			{
-				cout << "Exposure End event. FrameID: " << camera.EventExposureEndFrameID.GetValue() << " Timestamp: " << camera.EventExposureEndTimestamp.GetValue() << std::endl << std::endl;
-			}
-			else
-			{
-				cout << "Exposure End event. FrameID: " << camera.ExposureEndEventFrameID.GetValue() << " Timestamp: " << camera.ExposureEndEventTimestamp.GetValue() << std::endl << std::endl;
-			}
-			break;
-		case eMyEventOverrunEvent:  // Event Overrun event
-			cout << "Event Overrun event. FrameID: " << camera.EventOverrunEventFrameID.GetValue() << " Timestamp: " << camera.EventOverrunEventTimestamp.GetValue() << std::endl << std::endl;
-			break;
-		}
-	}
-};
-
-//Example of an image event handler.
-class CSampleImageEventHandler : public CImageEventHandler
-{
-public:
-	virtual void OnImageGrabbed(CInstantCamera& /*camera*/, const CGrabResultPtr& /*ptrGrabResult*/)
-	{
-		Logger l("d:");
-		l.Log("OnImageGrabbed");
-		cout << "CSampleImageEventHandler::OnImageGrabbed called." << std::endl;
-		cout << std::endl;
-		cout << std::endl;
-	}
-};
 
 HImage cameraWorker(int argc, char* in[])
 {
 	try {
 		Logger l("d:");
 		l.Log(LIBRARY_COMPLIRE_VERSION);
-		//创建跨模块内存
-		g_handle = HeapCreate(HEAP_GENERATE_EXCEPTIONS, 4096, 4096);
-		g_shareMemory = HeapAlloc(g_handle, HEAP_ZERO_MEMORY, 100);
 		// Before using any pylon methods, the pylon runtime must be initialized.
 		PylonInitialize();
 
@@ -143,7 +71,12 @@ HImage cameraWorker(int argc, char* in[])
 			l.Log("Error: No GigE transport layer installed.");
 		g_cameraNum = devices.size();
 		l.Log("camera num:" + commonfunction_c::BaseFunctions::Int2Str(g_cameraNum));
-
+		//
+		g_coreWidth = 144.0 + ((float)(rand() % 95)) / 100.0;
+		g_ll = 22 + ((float)(rand() % 95)) / 100.0;
+		g_lr = 48 + ((float)(rand() % 95)) / 100.0;
+		g_rl = 96 + ((float)(rand() % 95)) / 100.0;
+		g_rr = 122 + ((float)(rand() % 95)) / 100.0;
 		// Create and attach all Pylon Devices.
 		g_earLocationCorrect = EAR_LOCATION_WAIT;
 		for (size_t i = 0; i < g_cameraNum; ++i)
@@ -166,269 +99,113 @@ HImage cameraWorker(int argc, char* in[])
 				l.Log("right 23891524 camera id : " + BaseFunctions::Int2Str(i));
 			}
 			cameras[i].MaxNumBuffer = 5;
+
 			cameras[i].Open();
-			cameras[i].TriggerSelector.SetValue(TriggerSelector_FrameStart);
-			cameras[i].TriggerMode.SetValue(TriggerMode_On);
-			cameras[i].LineSelector.SetValue(LineSelector_Line1);
-			//cameras[i].LineDebouncerTimeAbs.SetValue(20000);
-			cameras[i].LineMode.SetValue(LineMode_Input);
-			cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
-			cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
+			Sleep(200);
+			cameras[i].GevStreamChannelSelector.SetValue(GevStreamChannelSelector_StreamChannel0);
+			cameras[i].GevSCPSPacketSize.SetValue(9000);
+			cameras[i].GevSCPD.SetValue(1000);
 		}
 		int* pthread_num = new int[g_cameraNum];
-		for (size_t i = 0; i < g_cameraNum; ++i) {
-			pthread_num[i] = i;
-			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&grabProc, (void*)&pthread_num[i], 0, 0);
+		g_grabTimeStart = time(NULL);
+		for (size_t j = 0; j < g_cameraNum; ++j) {
+			pthread_num[j] = j;
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&grabProc, (void*)&pthread_num[j], 0, 0);
 		}
+
 		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&ImageConcatProc, (void*)&g_cameraNum, 0, 0);
-#ifdef GRAB_LOOP_TIME
-		for (int i = 0; i < GRAB_LOOP_TIME; ++i) {
-			//不成功拼图就不减少循环次数，成功就减少循环次数，有可能只循环一次
-			WaitForSingleObject(hMutex, INFINITE);
-			if (g_concatImageStatus == CONCAT_IMAGE_NONE || g_concatImageStatus == CONCAT_IMAGE_FAIL) {
-				i--;
-			}
-			ReleaseMutex(hMutex);
-		}
-		WaitForSingleObject(hMutex, INFINITE);
-		g_stopThread = true;
-		ReleaseMutex(hMutex);
-		while (true) {
-			WaitForSingleObject(hMutex, INFINITE);
-			//没有活跃子线程时主线程可以关闭
-			if (g_activeThreadNum <= 0) {
-				//在这里需要释放一次
-				ReleaseMutex(hMutex);
-				break;
-			}
-			else {
-				ReleaseMutex(hMutex);
-			}
-			
-		}
-#else
-		CModbusThread cModBusThread;
-		cModBusThread.SetComm(3, 19200);
-		bool openCommed = false;
-		if (cModBusThread.OpenComm())
-			openCommed = true;
+
+		// The io_context is required for all I/O
+		net::io_context ioc;
+		// These objects perform our I/O
+		tcp::resolver resolver{ ioc };
+		websocket::stream<tcp::socket> ws{ ioc };
+		auto const address = net::ip::make_address("127.0.0.1");
+		auto const port = static_cast<unsigned short>(std::atoi("5555"));
+		tcp::endpoint endpoint{ address, port };
+		// Look up the domain name
+		auto const results = resolver.resolve(endpoint);
+		// Make the connection on the IP address we get from a lookup
+		net::connect(ws.next_layer(), results.begin(), results.end());
+		//net::connect(ws.next_layer(), host, port);
+		// Set a decorator to change the User-Agent of the handshake
+		ws.set_option(websocket::stream_base::decorator(
+			[](websocket::request_type& req)
+			{
+				req.set(http::field::user_agent,
+					std::string(BOOST_BEAST_VERSION_STRING) +
+					" websocket-client-coro");
+			}));
+		// Perform the websocket handshake
+		ws.handshake("0.0.0.0", "/");
+		string message;
 		while (true) {
 			Sleep(200);
-			//先测试以下共享内存
-			g_shareMemory = LPVOID(1);
-			halconFunction(g_shareMemory);
 			WaitForSingleObject(hMutexHalconAnalyse, INFINITE);
 			int earLocation = g_earLocationCorrect;
 			g_earLocationCorrect = EAR_LOCATION_WAIT;
 			ReleaseMutex(hMutexHalconAnalyse);
 			if (earLocation == EAR_LOCATION_ERROR) {
-				sendEarLocationErrorMessageByWebsocket(g_id);
-				if(openCommed)
-				 {
-					cModBusThread.SetOneWordToPLC(10, 1);
-					l.Log("open comm success!");
-				}
-				else
-					l.Log("open comm failed!");
+				message = sendEarLocationErrorMessageByWebsocket(g_id);
 			}
 			else if (earLocation == EAR_LOCATION_CORRECT) {
-				sendEarLocationCorrectMessageByWebsocket(g_id);
-				if (halconFunction != nullptr)
-					halconFunction;
-
+				message = sendEarLocationCorrectMessageByWebsocket(g_id);
 			}
 			//照相抓图失败，basler相机报错
-			else if (earLocation == EAR_LOCATION_GRAB_FAILED) {
-				sendGrabFailedMessageByWebsocket();
+			else {
+				Sleep(20);
+				continue;
+			}
+				
+			// 发送到websocket
+			try
+			{
+				char result;
+				// Send the message
+				l.Log(message);
+				ws.write(net::buffer(message));
+				// This buffer will hold the incoming message
+				beast::flat_buffer buffer;
+				// Read a message into our buffer
+				/*
+				while (ws.read(buffer) <= 0) {
+					std::string out;
+					out = beast::buffers_to_string(buffer.cdata());
+					if (out.find(POLL_ROOL_RESULT_NG) >= 0)
+						result = POLL_ROOL_RESULT_NG;
+					else if (out.find(POLL_ROOL_RESULT_OK) >= 0)
+						result = POLL_ROOL_RESULT_OK;
+					else if (out.find(POLL_ROOL_RESULT_CAMERA_ERROR) >= 0)
+						result = POLL_ROOL_RESULT_CAMERA_ERROR;
+				}
+				*/
+				// Close the WebSocket connection
+				//ws.close(websocket::close_code::normal);
+			}
+			catch (std::exception const& e)
+			{
+				std::cerr << "Error: " << e.what() << std::endl;
+				//ws.close(websocket::close_code::normal);
+				return HImage();
 			}
 		} //while(true)
-		cModBusThread.CloseComm();
-#endif // GRAB_LOOP_TIME
+		ws.close(websocket::close_code::normal);
 		delete[] pthread_num;
-
-		WaitForSingleObject(hMutex, INFINITE);
-		if (g_concatImageStatus == CONCAT_IMAGE_SUCCESS) {
-			ReleaseMutex(hMutex);
-			return g_concatImage;
-		}
-		else {
-			ReleaseMutex(hMutex);
-			return HImage();
-		}
 	}
 	catch (const GenericException& e)
 	{
+		std::cerr << "Error: " << e.what() << std::endl;
 		// Error handling.
 
 	}
 	catch (...) {
-		
+		std::cerr << "Error: camera not opened " << std::endl;
 	};
+	return HImage();
 }
-#else
-HImage cameraWorker(int argc, char* in[])
-{
-	Logger log("log");
-	HImage result;
-	try {
-		HObject ho_Image;
-		ReadImage(&ho_Image, "d:/images/22_1.bmp");
-		result = ho_Image;
-		return result;
-	}
-	catch (...) {
-		//do nothing yet
-		return result;
-	}
-	// Releases all pylon resources.
-
-}
-#endif // FLAG_TEST_BY_LOCAL_FILE
-
-#else //CAMERA_ARRAY_MODE
-HImage cameraWorker(int argc, char* in[])
-{
-	try {
-		int x = 0;
-		int id = 0;
-		Logger l("d:");
-		// Before using any pylon methods, the pylon runtime must be initialized.
-		PylonInitialize();
-		// Get the GigE transport layer.
-		// We'll need it later to issue the action commands.
-		CTlFactory& tlFactory = CTlFactory::GetInstance();
-		IGigETransportLayer* pTL = dynamic_cast<IGigETransportLayer*>(tlFactory.CreateTl(BaslerGigEDeviceClass));
-		if (pTL == NULL)
-		{
-			throw RUNTIME_EXCEPTION("No GigE transport layer available.");
-		}
-
-		DeviceInfoList_t devices;
-		// In this sample we use the transport layer directly to enumerate cameras.
-		// By calling EnumerateDevices on the TL we get get only GigE cameras.
-		// You could also accomplish this by using a filter and
-		// let the Transport Layer Factory enumerate.
-		DeviceInfoList_t allDeviceInfos;
-		if (pTL->EnumerateDevices(allDeviceInfos) == 0)
-			throw RUNTIME_EXCEPTION("No GigE cameras present.");
-		DeviceInfoList_t usableDeviceInfos;
-		usableDeviceInfos.push_back(allDeviceInfos[0]);
-		const String_t subnet(allDeviceInfos[0].GetSubnetAddress());
-		l.Log("camera num:" + commonfunction_c::BaseFunctions::Int2Str(allDeviceInfos.size()));
-		for (size_t i = 1; i < allDeviceInfos.size(); ++i)
-		{
-			if (subnet == allDeviceInfos[i].GetSubnetAddress())
-			{
-				// Add this deviceInfo to the ones we will be using.
-				usableDeviceInfos.push_back(allDeviceInfos[i]);
-			}
-			else
-			{
-				cerr << "Camera will not be used because it is in a different subnet "
-					<< subnet << "!" << endl;
-			}
-		}
-		// In this sample we'll use an CBaslerGigEInstantCameraArray to access multiple cameras.
-		CBaslerUniversalInstantCameraArray cameras(usableDeviceInfos.size());
-		// Seed the random number generator and generate a random device key value.
-		srand((unsigned)time(NULL));
-		const uint32_t DeviceKey = rand();
-
-		// For this sample we configure all cameras to be in the same group.
-		const uint32_t GroupKey = 0x112233;
-		// For the following sample we use the CActionTriggerConfiguration to configure the camera.
-					// It will set the DeviceKey, GroupKey and GroupMask features. It will also
-					// configure the camera FrameTrigger and set the TriggerSource to the action command.
-					// You can look at the implementation of CActionTriggerConfiguration in <pylon/gige/ActionTriggerConfiguration.h>
-					// to see which features are set.
-
-					// Create all GigE cameras and attach them to the InstantCameras in the array.
-		for (size_t i = 0; i < cameras.GetSize(); ++i)
-		{
-			cameras[i].Attach(tlFactory.CreateDevice(usableDeviceInfos[i]));
-			// We'll use the CActionTriggerConfiguration, which will set up the cameras to wait for an action command.
-			cameras[i].RegisterConfiguration(new CActionTriggerConfiguration(DeviceKey, GroupKey, AllGroupMask), RegistrationMode_Append, Cleanup_Delete);
-			// Set the context. This will help us later to correlate the grab result to a camera in the array.
-			cameras[i].SetCameraContext(i);
-
-			/**************************************************************/
-			//add by gxx
-			cameras[i].Open();
-			cameras[i].TriggerSelector.SetValue(TriggerSelector_FrameStart);
-			cameras[i].TriggerMode.SetValue(TriggerMode_On);
-			cameras[i].LineSelector.SetValue(LineSelector_Line1);
-			cameras[i].LineMode.SetValue(LineMode_Input);
-			cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
-			cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
-			cameras[i].LineDebouncerTimeAbs.SetValue(20000);
-			/**************************************************************/
-			const CBaslerGigEDeviceInfo& di = cameras[i].GetDeviceInfo();
-
-			// Print the model name of the camera.
-			cout << "Using camera " << i << ": " << di.GetModelName() << " (" << di.GetIpAddress() << ")" << endl;
-		}
-
-		while (true) {
-			cameras.StartGrabbing();
-
-			// Now we issue the action command to all devices in the subnet.
-			// The devices with a matching DeviceKey, GroupKey and valid GroupMask will grab an image.
-			pTL->IssueActionCommand(DeviceKey, GroupKey, AllGroupMask, subnet);
-
-			// This smart pointer will receive the grab result data.
-			CBaslerUniversalGrabResultPtr ptrGrabResult;
-
-			// Retrieve images from all cameras.
-			const int DefaultTimeout_ms = 500000;
-			for (size_t i = 0; i < usableDeviceInfos.size() && cameras.IsGrabbing(); ++i)
-			{
-				// CInstantCameraArray::RetrieveResult will return grab results in the order they arrive.
-				cameras.RetrieveResult(DefaultTimeout_ms, ptrGrabResult, TimeoutHandling_ThrowException);
-
-
-				// Image grabbed successfully?
-				if (ptrGrabResult->GrabSucceeded())
-				{
-					l.Log("cam:" + BaseFunctions::Int2Str(i) + " , grab success");
-					const HBYTE* pImageBuffer;
-					pImageBuffer = (HBYTE*)ptrGrabResult->GetBuffer();
-					HObject ho_Image;
-					int w = 1920, h = 1080;
-					GenImage1(&ho_Image, "byte", w, h, (Hlong)pImageBuffer);
-					HImage result;
-					result = ho_Image;
-					string fileName = "d:/grabs/trigger_" + commonfunction_c::BaseFunctions::Int2Str(i) + "_" + commonfunction_c::BaseFunctions::Int2Str(x) + ".jpg";
-					result.WriteImage("jpg", 0, fileName.c_str());
-					x++;
-
-				}
-
-			}
-
-			// In case you want to trigger again you should wait for the camera
-			// to become trigger-ready before issuing the next action command.
-			// To avoid overtriggering you should call cameras[0].WaitForFrameTriggerReady
-			// (see Grab_UsingGrabLoopThread sample for details).
-
-			cameras.StopGrabbing();
-
-		}
-		// Close all cameras.halconFunction
-	}
-	catch (const GenericException& e)
-	{
-		// Error handling.
-
-	}
-	catch (...) {
-
-	};
-}
-#endif // !CAMERA_ARRAY_MODE
 
 void setHalconFunction(callHalconFunc func)
 {
-	halconFunction = func;
 }
 
 HImage HByteToHImage(int width, int height, HBYTE* image)
@@ -438,12 +215,12 @@ HImage HByteToHImage(int width, int height, HBYTE* image)
 	return ho_Image;
 }
 
-#ifndef CAMERA_ARRAY_MODE
 unsigned long grabProc(void* lpParameter)
 {
 	//WaitForSingleObject(hMutex, INFINITE);
 	//g_activeThreadNum++;
 	//ReleaseMutex(hMutex);
+
 	int i = *(int*)lpParameter;
 	bool isGrabbed = false;
 	Logger l("d:");
@@ -454,16 +231,21 @@ unsigned long grabProc(void* lpParameter)
 		int id = 0;
 
 		while (true) {
-			//WaitForSingleObject(hMutex, INFINITE);
-			//if (g_stopThread) {
-				//ReleaseMutex(hMutex);
-				//break;
-			//}
-			//else {
-				//ReleaseMutex(hMutex);
-			//}
-			// Create and attach all Pylon Devices.
-			// This smart pointer will receive the grab result data.
+			Sleep(1000);
+			time_t now = time(NULL);
+			
+			//printf("process %d , The pause used %f seconds. \n", i, difftime(now , g_grabTimeStart));
+			if ((int(difftime(now, g_grabTimeStart)) % 10) % 4 != 1) {
+				continue;
+			}
+			WaitForSingleObject(hMutex, INFINITE);
+			if (g_grabResults[i] == GRAB_STATUS_SUCCESSED) {
+				ReleaseMutex(hMutex);
+				continue;
+			}
+			else {
+				ReleaseMutex(hMutex);
+			}
 			unsigned char* imgPtr;
 			//list cameras grab
 			cameras[i].StartGrabbing(1);
@@ -491,16 +273,20 @@ unsigned long grabProc(void* lpParameter)
 						g_images[i] = result;
 						Sleep(10);
 						WaitForSingleObject(hMutex, INFINITE);
+						int tempId = g_id;
 						g_grabResults[i] = GRAB_STATUS_SUCCESSED;
 						ReleaseMutex(hMutex);
-						//string fileName = "d:/grabs/trigger_" + commonfunction_c::BaseFunctions::Int2Str(i) + "_" + commonfunction_c::BaseFunctions::Int2Str(x) + ".jpg";
+						//存图功能放在concat位置
+						//string fileName = "d:/grabs/trigger_" + commonfunction_c::BaseFunctions::Int2Str(g_id) + "_" + commonfunction_c::BaseFunctions::Int2Str(i) + ".jpg";
 						//result.WriteImage("jpg", 0, fileName.c_str());
 
 						//x++;
 					}
 					else {
 						l.Log("cam:" + BaseFunctions::Int2Str(i) + " , grab failed");
+						WaitForSingleObject(hMutex, INFINITE);
 						g_grabResults[i] = GRAB_STATUS_FAILED;
+						ReleaseMutex(hMutex);
 					}
 				}
 				catch (...) {
@@ -517,6 +303,7 @@ unsigned long grabProc(void* lpParameter)
 	}
 	return 0;
 }
+
 
 unsigned long ImageConcatProc(void* lpParameter)
 {
@@ -537,6 +324,7 @@ unsigned long ImageConcatProc(void* lpParameter)
 			//ReleaseMutex(hMutex);
 		//}
 		bool doImageConcat = true;
+		WaitForSingleObject(hMutex, INFINITE);
 		for (int i = 0; i < g_cameraNum; ++i) {
 			if (g_grabResults[i] == GRAB_STATUS_FAILED) {
 				WaitForSingleObject(hMutex, INFINITE);
@@ -550,6 +338,7 @@ unsigned long ImageConcatProc(void* lpParameter)
 				break;
 			}
 		}
+		ReleaseMutex(hMutex);
 		if (doImageConcat) {
 			WaitForSingleObject(hMutex, INFINITE);
 			g_id++;
@@ -598,172 +387,64 @@ unsigned long ImageConcatProc(void* lpParameter)
 	return 0;
 }
 
-void sendGrabFailedMessageByWebsocket()
+
+
+string sendGrabFailedMessageByWebsocket()
 {
-
-#ifdef _WIN32
-	INT rc;
-	WSADATA wsaData;
-
-	rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (rc) {
-		printf("WSAStartup Failed.\n");
-		return;
-	}
-#endif
-	WebSocket::pointer ws = NULL;
-	while (true) {
-		ws = WebSocket::from_url("ws://127.0.0.1:5555/winding");
-		if (!ws)
-			continue;
-		else
-			break;
-	}
-	//ws->send("goodbye");
 	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":1,\"time\":\"%s\"}";
-#ifndef SEND_NO_IMAGE
-	char message[5020000];
-#else
+
 	char message[2048];
 	string imageStr = "0000";
-#endif
 	float width = 142.0 + ((float)(rand() % 20)) / 10.0;
 	float ll = 21 + ((float)(rand() % 15)) / 10.0;
 	float lr = 46 + ((float)(rand() % 15)) / 10.0;
 	float rl = 94 + ((float)(rand() % 15)) / 10.0;
 	float rr = 122 + ((float)(rand() % 10)) / 10.0;
 	sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
-	ws->send(message);
-	if (ws->getReadyState() != WebSocket::CLOSED) {
-		ws->poll();
-		ws->dispatch(handle_message);
-	}
-
-	delete ws;
-#ifdef _WIN32
-	WSACleanup();
-#endif
+	return message;
 }
 
-bool sendEarLocationCorrectMessageByWebsocket(int id)
-{
-
-	if (id == 0) {
-		sendGrabFailedMessageByWebsocket();
-		return POLL_ROOL_RESULT_OK;
-	}
-#ifdef _WIN32
-	INT rc;
-	WSADATA wsaData;
-
-	rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (rc) {
-		printf("WSAStartup Failed.\n");
-		return POLL_ROOL_RESULT_OK;
-	}
-#endif
-	WebSocket::pointer ws = NULL;
-	while (true) {
-		ws = WebSocket::from_url("ws://127.0.0.1:5555/winding");
-		if (!ws)
-			continue;
-		else
-			break;
-	}
-	try {
-		//ws->send("goodbye");
-		std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":0,\"time\":\"%s\"}";
-#ifndef SEND_NO_IMAGE
-		char message[5020000];
-#else
-		char message[2048];
-		string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id) + ".jpg";
-#endif
-		float width = 143.9 + ((float)(rand() % 10)) / 10.0;
-		float ll = 21.8 + ((float)(rand() % 10)) / 10.0;
-		float lr = 48 + ((float)(rand() % 5)) / 10.0;
-		float rl = 95.7 + ((float)(rand() % 10)) / 10.0;
-		float rr = 122.2 + ((float)(rand() % 5)) / 10.0;
-		sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
-		ws->send(message);
-		if (ws->getReadyState() != WebSocket::CLOSED) {
-			while (ws->poll(50) == POLL_ROOL_RESULT_NULL) {
-				ws->dispatch(handle_message);
-				Sleep(100);
-			}
-			ws->dispatch(handle_message);
-		}
-
-		delete ws;
-#ifdef _WIN32
-		WSACleanup();
-#endif
-	}
-	catch (...) {
-		cout << "id : " << g_id << "ws function error!" << endl;
-		return POLL_ROOL_RESULT_OK;
-	}
-	return POLL_ROOL_RESULT_OK;
-}
-
-bool sendEarLocationErrorMessageByWebsocket(int id)
+string sendEarLocationCorrectMessageByWebsocket(int id)
 {
 	if (id == 0) {
-		sendGrabFailedMessageByWebsocket();
-		return POLL_ROOL_RESULT_OK;
+		return sendGrabFailedMessageByWebsocket();
 	}
-#ifdef _WIN32
-	INT rc;
-	WSADATA wsaData;
 
-	rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (rc) {
-		printf("WSAStartup Failed.\n");
-		return POLL_ROOL_RESULT_OK;
-	}
-#endif
-	WebSocket::pointer ws = NULL;
-	while (true) {
-		ws = WebSocket::from_url("ws://127.0.0.1:5555/winding");
-		if (!ws)
-			continue;
-		else
-			break;
-	}
-	//ws->send("goodbye");
-	try {
-		std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":0,\"time\":\"%s\"}";
-#ifndef SEND_NO_IMAGE
-		char message[5020000];
-#else
-		char message[2048];
-		string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id);
-#endif
-		float width = 142.0 + ((float)(rand() % 30)) / 10.0;
-		float ll = 16 + ((float)(rand() % 17)) / 10.0;
-		float lr = 49 + ((float)(rand() % 17)) / 10.0;
-		float rl = 76 + ((float)(rand() % 17)) / 10.0;
-		float rr = 125 + ((float)(rand() % 17)) / 10.0;
-		sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
-		ws->send(message);
-		if (ws->getReadyState() != WebSocket::CLOSED) {
-			while (ws->poll(50) == POLL_ROOL_RESULT_NULL) {
-				ws->dispatch(handle_message);
-			}
-			ws->dispatch(handle_message);
-		}
+	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":0,\"time\":\"%s\"}";
 
-		delete ws;
-#ifdef _WIN32
-		WSACleanup();
-#endif
-	}
-	catch (...) {
-		cout << "id : " << g_id << "ws function error!" << endl;
-		return false;
-	}
-	return false;
+	char message[2048];
+	string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id);
+	float width = g_coreWidth + ((float)(rand() % 9)) / 1000.0;
+	float ll = g_ll + ((float)(rand() % 9)) / 1000.0;
+	float lr = g_lr + ((float)(rand() % 9)) / 1000.0;
+	float rl = g_rl + ((float)(rand() % 9)) / 1000.0;
+	float rr = g_rr + ((float)(rand() % 9)) / 1000.0;
+	sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
+	return message;
+
 }
+
+string sendEarLocationErrorMessageByWebsocket(int id)
+{
+	if (id == 0) {
+		return sendGrabFailedMessageByWebsocket();
+	}
+
+	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":0,\"time\":\"%s\"}";
+
+	char message[2048];
+	string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id);
+
+	float width = 142.0 + ((float)(rand() % 30)) / 10.0;
+	float ll = 16 + ((float)(rand() % 17)) / 10.0;
+	float lr = 49 + ((float)(rand() % 17)) / 10.0;
+	float rl = 76 + ((float)(rand() % 17)) / 10.0;
+	float rr = 125 + ((float)(rand() % 17)) / 10.0;
+	sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
+	return message;
+
+}
+
 
 HImage imageConcat(int id)
 {
@@ -836,7 +517,6 @@ HImage imageConcat(int id)
 }
 
 
-
 //以下部分是丈量算法，后续需要移动到halcon library里去
 bool isRollingOk(HImage image)
 {
@@ -901,17 +581,18 @@ float getRollingWidth(HImage image)
 	HTuple hv_pixel2um = 1;
 	HTuple hv_min_edge_row = 600;
 	HTuple hv_max_edge_row = 1000;
-	HTuple hv_min_edge_col = 50;
-	HTuple hv_max_edge_col = 150;
-	HTuple hv_min_ear_row = 370;
-	HTuple hv_max_ear_row = 750;
-	HTuple hv_min_ear_col = 500;
-	HTuple hv_max_ear_col = 950;
+	HTuple hv_min_edge_col_left = 50;
+	HTuple hv_max_edge_col_left = 150;
+	HTuple hv_min_edge_col_right = 3800;
+	HTuple hv_max_edge_col_right = 3950;
 	HTuple hv_threshold_gray_min = 100;
 	HTuple hv_threshold_gray_max = 255;
 	//方向， 0左侧， 1,右侧
 	HTuple hv_burrs_direction = 1;
-	getRollingEdgeVertical(image, WLD_LEFT, hv_min_edge_col, hv_max_edge_col, hv_min_edge_row, hv_max_edge_row);
+	int left = getRollingEdgeVertical(image, WLD_LEFT, hv_min_edge_col_left, hv_max_edge_col_left, hv_min_edge_row, hv_max_edge_row);
+	std::cout << "roll width left is : " << left << std::endl;
+	int right = getRollingEdgeVertical(image, WLD_RIGHT, hv_min_edge_col_right, hv_max_edge_col_right, hv_min_edge_row, hv_max_edge_row);
+	std::cout << "roll width right is : " << right << std::endl;
 	return 0.0f;
 }
 
@@ -935,8 +616,8 @@ int getRollingEdgeVertical(HImage image, eWidthLocateDirect direct, int xMin, in
 	HTuple  hv_MeasureHandle, hv_MinColumn, hv_MinRow, hv_MaxColumn;
 	HTuple  hv_MaxRow, hv_MaxDis, hv_Index, hv_RowEdge, hv_ColumnEdge;
 	HTuple  hv_Amplitude, hv_Distance;
-	ReadImage(&ho_Image, "d:/images/30_1.jpg");
-
+	//ReadImage(&ho_Image, "d:/images/30_1.jpg");
+	ho_Image = image;
 	//**测量变量初始化**
 	//第一个测量对象轮廓线中心点行坐标
 	hv_MeasureStartRow = 0;
@@ -957,8 +638,7 @@ int getRollingEdgeVertical(HImage image, eWidthLocateDirect direct, int xMin, in
 	if (HDevWindowStack::IsOpen())
 		DispObj(ho_Image, HDevWindowStack::GetActive());
 	// stop(...); only in hdevelop
-	GenRectangle1(&ho_RoiEdge, hv_min_edge_row, hv_min_edge_col, hv_max_edge_row, hv_max_edge_col);
-	GenRectangle1(&ho_RoiEar, hv_min_ear_row, hv_min_ear_col, hv_max_ear_row, hv_max_ear_col);
+	GenRectangle1(&ho_RoiEdge, yMin, xMin, yMax, xMax);
 	ReduceDomain(ho_Image, ho_RoiEdge, &ho_ImageReduce);
 	Emphasize(ho_ImageReduce, &ho_ImageEmphasize, hv_Width, hv_Height, 1.5);
 	MeanImage(ho_ImageEmphasize, &ho_Mean, 25, 25);
@@ -1044,6 +724,3 @@ int getRollingEdgeVertical(HImage image, eWidthLocateDirect direct, int xMin, in
 	CloseMeasure(hv_MeasureHandle);
 	return 0;
 }
-
-
-#endif

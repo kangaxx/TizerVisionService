@@ -72,7 +72,7 @@
 
 #include <vector>
 #include <string>
-
+#include <iostream>
 #include "easywsclient.hpp"
 
 using easywsclient::Callback_Imp;
@@ -114,7 +114,7 @@ socket_t hostname_connect(const std::string& hostname, int port) {
 class _DummyWebSocket : public easywsclient::WebSocket
 {
   public:
-    void poll(int timeout) { }
+    char poll(int timeout) { return POLL_ROOL_RESULT_NULL; }
     void send(const std::string& message) { }
     void sendBinary(const std::string& message) { }
     void sendBinary(const std::vector<uint8_t>& message) { }
@@ -186,13 +186,14 @@ class _RealWebSocket : public easywsclient::WebSocket
       return readyState;
     }
 
-    void poll(int timeout) { // timeout in milliseconds
+    char poll(int timeout) { // timeout in milliseconds
+        char result = POLL_ROOL_RESULT_NULL;
         if (readyState == CLOSED) {
             if (timeout > 0) {
                 timeval tv = { timeout/1000, (timeout%1000) * 1000 };
                 select(0, NULL, NULL, NULL, &tv);
             }
-            return;
+            return result;
         }
         if (timeout != 0) {
             fd_set rfds;
@@ -210,6 +211,19 @@ class _RealWebSocket : public easywsclient::WebSocket
             ssize_t ret;
             rxbuf.resize(N + 1500);
             ret = recv(sockfd, (char*)&rxbuf[0] + N, 1500, 0);
+            /* 替代easy websocket代码，实现回传 add by gxx */
+            /***********************************************/
+            std::cout << "ret is :" << ret << " , and get socket buf :" << (char*)&rxbuf[0] << std::endl;
+            for (int i = 0; i < N; ++i) {
+                if (*(char*)&rxbuf[i] == POLL_ROOL_RESULT_NG)
+                    result = POLL_ROOL_RESULT_NG;
+                if (*(char*)&rxbuf[i] == POLL_ROOL_RESULT_OK)
+                    result = POLL_ROOL_RESULT_OK;
+                if (*(char*)&rxbuf[i] == POLL_ROOL_RESULT_CAMERA_ERROR)
+                    result = POLL_ROOL_RESULT_CAMERA_ERROR;
+            }
+            /***********************************************/
+            /* 以下是easy websocket原有代码 ，请不要删除 by gxx */
             if (false) { }
             else if (ret < 0 && (socketerrno == SOCKET_EWOULDBLOCK || socketerrno == SOCKET_EAGAIN_EINPROGRESS)) {
                 rxbuf.resize(N);
@@ -225,6 +239,8 @@ class _RealWebSocket : public easywsclient::WebSocket
             else {
                 rxbuf.resize(N + ret);
             }
+            /* 以上是easy ws原有代码  请不要删除 by gxx */
+
         }
         while (txbuf.size()) {
             int ret = ::send(sockfd, (char*)&txbuf[0], txbuf.size(), 0);
@@ -246,6 +262,7 @@ class _RealWebSocket : public easywsclient::WebSocket
             closesocket(sockfd);
             readyState = CLOSED;
         }
+        return result;
     }
 
     // Callable must have signature: void(const std::string & message).
