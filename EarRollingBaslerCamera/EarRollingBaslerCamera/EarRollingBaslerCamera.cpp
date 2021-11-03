@@ -233,8 +233,6 @@ HImage cameraWorker(int argc, char* in[])
 			}
 			else if (earLocation == EAR_LOCATION_CORRECT) {
 				sendEarLocationCorrectMessageByWebsocket(g_id);
-				if (halconFunction != nullptr)
-					halconFunction;
 
 			}
 			//照相抓图失败，basler相机报错
