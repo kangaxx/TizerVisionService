@@ -15,42 +15,18 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="EarRollingBaslerCamera.cpp">
+    <ClCompile Include="com485tester.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="Ear_Edge_Locate_Harris.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Modbus\crc16.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Modbus\LocalModbus.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="Modbus\modbus.cpp">
+    <ClCompile Include="CSerialPort.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="EarRollingBaslerCamera.h">
+    <ClInclude Include="CSerialPort.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="ModbusThread.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Modbus\Common.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Modbus\crc16.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Modbus\LocalModbus.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Modbus\modbus.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="Modbus\ModbusMessages.h">
+    <ClInclude Include="stdafx.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

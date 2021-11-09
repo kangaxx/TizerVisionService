@@ -25,15 +25,14 @@ using namespace fastdelegate;
 using namespace HalconCpp;
 class LibraryLoader;
 
-void delegateFunction(LPVOID l);
+void delegateFunction(string);
 typedef char** (*halconFunc)(int, char*[], HImage, char**);
 typedef HImage (*cameraWork)(int, char* []);
-typedef void (*callHalconFunc)(LPVOID);
+typedef void (*callHalconFunc)(string);
 typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [], HBYTE[]));
 typedef void (*setHalconFunction)(callHalconFunc);
 
 using namespace commonfunction_c;
-
 
 
 class LibraryLoader {
@@ -114,6 +113,30 @@ public:
 
 int main()
 {
+	//创建共享内存
+	HANDLE hFile = CreateFile(L"Recv1.zip",
+		GENERIC_WRITE | GENERIC_READ,
+		FILE_SHARE_READ,
+		NULL,
+		CREATE_ALWAYS,
+		FILE_FLAG_SEQUENTIAL_SCAN,
+		NULL);
+	HANDLE hFileMapping = CreateFileMapping(hFile, NULL, PAGE_READWRITE,
+		0, 0x4000000, NULL);
+	// 释放文件内核对象
+	CloseHandle(hFile);
+	// 设定大小、偏移量等参数
+	__int64 qwFileSize = 0x4000000;
+	__int64 qwFileOffset = 0;
+	__int64 T = 600;
+	DWORD dwBytesInBlock = 1000;
+
+	// 将文件数据映射到进程的地址空间
+	PBYTE pbFile = (PBYTE)MapViewOfFile(hFileMapping,
+		FILE_MAP_ALL_ACCESS,
+		(DWORD)(qwFileOffset >> 32), (DWORD)(qwFileOffset & 0xFFFFFFFF), dwBytesInBlock);
+	//
+
 	std::cout << "Hello World! Welcome to library loader, pls select library by num\n";
 	std::cout << "[0] exit program \n";
 	std::cout << "[1] halcon taichi! \n";
@@ -146,14 +169,16 @@ int main()
 
 		}
 	}
+
+	// 从进程的地址空间撤消文件数据映像
+	UnmapViewOfFile(pbFile);
 	return 0;
 }
 
 
 
-void delegateFunction(LPVOID l) {
-	int result = *(int*)(l);
-	cout << "from dll , result is : " << result << endl;
+void delegateFunction(string msg) {
+	cout << "from dll , result is : " << msg << endl;
 	return;
 }
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单

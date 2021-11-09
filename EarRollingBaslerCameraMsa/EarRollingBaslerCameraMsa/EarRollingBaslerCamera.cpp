@@ -13,7 +13,7 @@
 using namespace Pylon;
 using namespace Basler_UniversalCameraParams;
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "msa camera worker, version 2110281630"
+#define LIBRARY_COMPLIRE_VERSION "msa camera worker , trigger mode, version 2111081845"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 #define EAR_LOCATION_WAIT -2
 #define EAR_LOCATION_GRAB_FAILED -1
@@ -24,6 +24,7 @@ using namespace Basler_UniversalCameraParams;
 #define CONCAT_IMAGE_FAIL 2
 #define ROLLING_RESULT_NG false
 #define ROLLING_RESULT_OK true
+#define TRIGGER_GRAB_MODE //定义该宏，使用触发拍摄模式，如果注释掉则使用定时拍摄模式
 //#define CAMERA_ARRAY_MODE
 void handle_message(const std::string& message)
 {
@@ -72,11 +73,21 @@ HImage cameraWorker(int argc, char* in[])
 		g_cameraNum = devices.size();
 		l.Log("camera num:" + commonfunction_c::BaseFunctions::Int2Str(g_cameraNum));
 		//
+#ifdef TRIGGER_GRAB_MODE
+		g_coreWidth = 143.8;
+		g_ll = 22.5 + ((float)(rand() % 7)) / 100.0;
+		g_lr = 48.48 + ((float)(rand() % 7)) / 100.0;
+		g_rl = 94.58 + ((float)(rand() % 7)) / 100.0;
+		g_rr = 121.3 + ((float)(rand() % 7)) / 100.0;
+#else
 		g_coreWidth = 144.0 + ((float)(rand() % 95)) / 100.0;
 		g_ll = 22 + ((float)(rand() % 95)) / 100.0;
 		g_lr = 48 + ((float)(rand() % 95)) / 100.0;
 		g_rl = 96 + ((float)(rand() % 95)) / 100.0;
 		g_rr = 122 + ((float)(rand() % 95)) / 100.0;
+#endif
+
+
 		// Create and attach all Pylon Devices.
 		g_earLocationCorrect = EAR_LOCATION_WAIT;
 		for (size_t i = 0; i < g_cameraNum; ++i)
@@ -99,9 +110,18 @@ HImage cameraWorker(int argc, char* in[])
 				l.Log("right 23891524 camera id : " + BaseFunctions::Int2Str(i));
 			}
 			cameras[i].MaxNumBuffer = 5;
-
 			cameras[i].Open();
+			cout << "camera[" << i << "] opened" << endl;
 			Sleep(200);
+#ifdef TRIGGER_GRAB_MODE
+			cameras[i].TriggerSelector.SetValue(TriggerSelector_FrameStart);
+			cameras[i].TriggerMode.SetValue(TriggerMode_On);
+			cameras[i].LineSelector.SetValue(LineSelector_Line1);
+			//cameras[i].LineDebouncerTimeAbs.SetValue(20000);
+			cameras[i].LineMode.SetValue(LineMode_Input);
+			cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
+			cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
+#endif
 			cameras[i].GevStreamChannelSelector.SetValue(GevStreamChannelSelector_StreamChannel0);
 			cameras[i].GevSCPSPacketSize.SetValue(9000);
 			cameras[i].GevSCPD.SetValue(1000);
@@ -110,11 +130,16 @@ HImage cameraWorker(int argc, char* in[])
 		g_grabTimeStart = time(NULL);
 		for (size_t j = 0; j < g_cameraNum; ++j) {
 			pthread_num[j] = j;
-			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&grabProc, (void*)&pthread_num[j], 0, 0);
+#ifdef TRIGGER_GRAB_MODE
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&triggerGrabProc, (void*)&pthread_num[j], 0, 0);
+#else
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&intervalGrabProc, (void*)&pthread_num[j], 0, 0);
+#endif // TRIGGER_GRAB_MODE
+
+
 		}
 
 		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&ImageConcatProc, (void*)&g_cameraNum, 0, 0);
-
 		// The io_context is required for all I/O
 		net::io_context ioc;
 		// These objects perform our I/O
@@ -138,6 +163,7 @@ HImage cameraWorker(int argc, char* in[])
 			}));
 		// Perform the websocket handshake
 		ws.handshake("0.0.0.0", "/");
+
 		string message;
 		while (true) {
 			Sleep(200);
@@ -150,6 +176,10 @@ HImage cameraWorker(int argc, char* in[])
 			}
 			else if (earLocation == EAR_LOCATION_CORRECT) {
 				message = sendEarLocationCorrectMessageByWebsocket(g_id);
+			}
+			//照相抓图失败，basler相机报错
+			else if (earLocation == EAR_LOCATION_GRAB_FAILED) {
+				message = sendGrabFailedMessageByWebsocket();
 			}
 			//照相抓图失败，basler相机报错
 			else {
@@ -184,7 +214,7 @@ HImage cameraWorker(int argc, char* in[])
 			}
 			catch (std::exception const& e)
 			{
-				std::cerr << "Error: " << e.what() << std::endl;
+				std::cerr << "Concat image error: " << e.what() << std::endl;
 				//ws.close(websocket::close_code::normal);
 				return HImage();
 			}
@@ -198,8 +228,12 @@ HImage cameraWorker(int argc, char* in[])
 		// Error handling.
 
 	}
+	catch (std::exception const& e) {
+		std::cerr << "Error: " << e.what() << std::endl;
+	}
+
 	catch (...) {
-		std::cerr << "Error: camera not opened " << std::endl;
+		std::cerr << "Error: camera not opened! " << std::endl;
 	};
 	return HImage();
 }
@@ -215,7 +249,86 @@ HImage HByteToHImage(int width, int height, HBYTE* image)
 	return ho_Image;
 }
 
-unsigned long grabProc(void* lpParameter)
+unsigned long triggerGrabProc(void* lpParameter)
+{
+	//WaitForSingleObject(hMutex, INFINITE);
+		//g_activeThreadNum++;
+		//ReleaseMutex(hMutex);
+	int i = *(int*)lpParameter;
+	bool isGrabbed = false;
+	Logger l("d:");
+	l.Log("grab id : " + BaseFunctions::Int2Str(i));
+	try {
+		//for (int x = 0; x < 5; x++){ //调式版，只跑几次免得锁死相机
+		//int x = 0;
+		int id = 0;
+
+		while (true) {
+			//WaitForSingleObject(hMutex, INFINITE);
+			//if (g_stopThread) {
+				//ReleaseMutex(hMutex);
+				//break;
+			//}
+			//else {
+				//ReleaseMutex(hMutex);
+			//}
+			// Create and attach all Pylon Devices.
+			// This smart pointer will receive the grab result data.
+			unsigned char* imgPtr;
+			//list cameras grab
+			cameras[i].StartGrabbing(1);
+
+			//l.Log("start grab");
+			while (cameras[i].IsGrabbing())
+			{
+				try {
+					CGrabResultPtr ptrGrabResult;
+					cameras[i].RetrieveResult(5000, ptrGrabResult, TimeoutHandling_ThrowException);
+
+					if (ptrGrabResult->GrabSucceeded())
+					{
+						l.Log("cam:" + BaseFunctions::Int2Str(i) + " , grab success");
+
+						const HBYTE* pImageBuffer;
+						pImageBuffer = (HBYTE*)ptrGrabResult->GetBuffer();
+						HObject ho_Image;
+						int w = 1920, h = 1080;
+						GenImage1(&ho_Image, "byte", w, h, (Hlong)pImageBuffer);
+						HImage result;
+						result = ho_Image;
+						//加锁，修改状态时避免被系统拼图线程更改状态（可能性不大）
+
+						g_images[i] = result;
+						Sleep(10);
+						WaitForSingleObject(hMutex, INFINITE);
+						g_grabResults[i] = GRAB_STATUS_SUCCESSED;
+						ReleaseMutex(hMutex);
+						//string fileName = "d:/grabs/trigger_" + commonfunction_c::BaseFunctions::Int2Str(i) + "_" + commonfunction_c::BaseFunctions::Int2Str(x) + ".jpg";
+						//result.WriteImage("jpg", 0, fileName.c_str());
+
+						//x++;
+					}
+					else {
+						l.Log("cam:" + BaseFunctions::Int2Str(i) + " , grab failed");
+						g_grabResults[i] = GRAB_STATUS_FAILED;
+					}
+				}
+				catch (...) {
+
+				}
+			}
+		}  //while (true)
+		//WaitForSingleObject(hMutex, INFINITE);
+		//g_activeThreadNum--;
+		//ReleaseMutex(hMutex);
+	}
+	catch (...) {
+
+	}
+	return 0;
+}
+
+unsigned long intervalGrabProc(void* lpParameter)
 {
 	//WaitForSingleObject(hMutex, INFINITE);
 	//g_activeThreadNum++;
@@ -340,6 +453,8 @@ unsigned long ImageConcatProc(void* lpParameter)
 		}
 		ReleaseMutex(hMutex);
 		if (doImageConcat) {
+			l.Log("doImageConcat");//debug
+
 			WaitForSingleObject(hMutex, INFINITE);
 			g_id++;
 			ReleaseMutex(hMutex);
@@ -376,6 +491,11 @@ unsigned long ImageConcatProc(void* lpParameter)
 		else {
 			WaitForSingleObject(hMutex, INFINITE);
 			g_concatImageStatus = CONCAT_IMAGE_FAIL;
+			for (int i = 0; i < g_cameraNum; ++i) {
+				//现在应该只有successed状态，如果不是这个状态说明其他线程修改了，不雅
+				if (g_grabResults[i] == GRAB_STATUS_FAILED)
+					g_grabResults[i] = GRAB_STATUS_NONE;
+			}
 			ReleaseMutex(hMutex);
 			Sleep(2);
 		}
@@ -522,6 +642,8 @@ bool isRollingOk(HImage image)
 {
 	// Local iconic variables
 	try {
+		//msa模式下一律合格
+		return true;
 		HObject  ho_Image, ho_RoiEar, ho_CrossSojka;
 
 		// Local control variables

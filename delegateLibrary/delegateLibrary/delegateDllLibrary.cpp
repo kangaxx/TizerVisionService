@@ -2,12 +2,7 @@
 
 HImage cameraWorker(int argc, char* in[])
 {
-    g_handle = HeapCreate(HEAP_GENERATE_EXCEPTIONS, 4096, 4096);
-    if (g_handle == 0)
-        return HImage();
-    g_shareMemory = HeapAlloc(g_handle, HEAP_ZERO_MEMORY, 100);
-    g_shareMemory = LPVOID(1);
-    halconFunction(g_shareMemory);
+    halconFunction("from  delegate library");
     while (true) {
         Sleep(100);
     }

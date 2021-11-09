@@ -108,6 +108,28 @@ public:
 		}
 	}
 
+	// 异步
+	void SetFourWordToPLC(const WORD& dt, const WORD* value) {
+		//	FILE* fp = fopen("PLC.txt","a");
+		ModbusWritePackage package;
+		ZeroMemory(&package, sizeof(ModbusWritePackage));
+		package.wStartDT = dt;
+		package.wQuerySize = 4;
+		for (int i = 0; i < 4; i++)
+		{
+			//	if(fp)
+			//		fprintf(fp,"%d = %d\n",i,value[i]);
+			package.arrWordQuery[i] = value[i];
+		}
+		//	if(fp)
+		//		fclose(fp);
+			//package.arrWordQuery[1] = value[1];
+			//AppendModbusWritePackage(package);
+
+		if (!WritePackageToPLC(package)) //发送失败，那么表示与PLC的连接断开
+		{
+		}
+	}
 	// 在线程中读取和写入PLC的寄存器
 	//virtual void run();
 

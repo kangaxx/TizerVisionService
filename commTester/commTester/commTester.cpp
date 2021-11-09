@@ -11,7 +11,20 @@ int main()
     if (mbt.OpenComm()) {
         for (int i = 0; i < 1; ++i) {
             Sleep(2500);
-            mbt.SetOneWordToPLC(10, 1);
+            WORD value[4];
+            //打开rs485 out 1的协议
+            value[0] = 0x0106;
+            value[1] = 0x0000;
+            value[2] = 0x0000;
+            value[3] = 0x480A;
+            mbt.SetTwoWordToPLC(0, value);
+            Sleep(5000);
+            //关闭rs485 out 1的协议
+            value[0] = 0x0106;
+            value[1] = 0x0001;
+            value[2] = 0x0001;
+            value[3] = 0x19CA;
+            mbt.SetTwoWordToPLC(0, value);
         }
         mbt.CloseComm();
         std::cout << "open comm success!\n";

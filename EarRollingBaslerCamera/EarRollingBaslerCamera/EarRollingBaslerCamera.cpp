@@ -1,4 +1,3 @@
-#include "easywsclient.hpp"
 //#include "easywsclient.cpp" // <-- include only if you don't want compile separately
 #ifdef _WIN32
 #pragma comment( lib, "ws2_32" )
@@ -6,10 +5,10 @@
 #endif
 #include <assert.h>
 #include <stdio.h>
+
 #include "EarRollingBaslerCamera.h"
 #include "ModbusThread.h"
 
-using easywsclient::WebSocket;
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
 #define LIBRARY_COMPLIRE_VERSION "camera worker, version 2111011630"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
@@ -69,8 +68,7 @@ static HImage g_concatImage;
 //static int g_concatLocation[2] = { 0, 1 }; //两台相机的测试版本
 static HANDLE hMutex = NULL;//互斥量
 static HANDLE hMutexHalconAnalyse = NULL; //算法互斥量
-static LPVOID g_shareMemory;
-static HANDLE g_handle;
+static float g_coreWidth, g_ll, g_lr, g_rl, g_rr;
 //Enumeration used for distinguishing different events.
 enum MyEvents
 {
@@ -130,8 +128,6 @@ HImage cameraWorker(int argc, char* in[])
 		Logger l("d:");
 		l.Log(LIBRARY_COMPLIRE_VERSION);
 		//创建跨模块内存
-		g_handle = HeapCreate(HEAP_GENERATE_EXCEPTIONS, 4096, 4096);
-		g_shareMemory = HeapAlloc(g_handle, HEAP_ZERO_MEMORY, 100);
 		// Before using any pylon methods, the pylon runtime must be initialized.
 		PylonInitialize();
 
@@ -175,6 +171,29 @@ HImage cameraWorker(int argc, char* in[])
 			cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
 			cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
 		}
+		// The io_context is required for all I/O
+		net::io_context ioc;
+		// These objects perform our I/O
+		tcp::resolver resolver{ ioc };
+		websocket::stream<tcp::socket> ws{ ioc };
+		auto const address = net::ip::make_address("127.0.0.1");
+		auto const port = static_cast<unsigned short>(std::atoi("5555"));
+		tcp::endpoint endpoint{ address, port };
+		// Look up the domain name
+		auto const results = resolver.resolve(endpoint);
+		// Make the connection on the IP address we get from a lookup
+		net::connect(ws.next_layer(), results.begin(), results.end());
+		//net::connect(ws.next_layer(), host, port);
+		// Set a decorator to change the User-Agent of the handshake
+		ws.set_option(websocket::stream_base::decorator(
+			[](websocket::request_type& req)
+			{
+				req.set(http::field::user_agent,
+					std::string(BOOST_BEAST_VERSION_STRING) +
+					" websocket-client-coro");
+			}));
+		// Perform the websocket handshake
+		ws.handshake("0.0.0.0", "/");
 		int* pthread_num = new int[g_cameraNum];
 		for (size_t i = 0; i < g_cameraNum; ++i) {
 			pthread_num[i] = i;
@@ -212,17 +231,16 @@ HImage cameraWorker(int argc, char* in[])
 		bool openCommed = false;
 		if (cModBusThread.OpenComm())
 			openCommed = true;
+		string message;
 		while (true) {
 			Sleep(200);
 			//先测试以下共享内存
-			g_shareMemory = LPVOID(1);
-			halconFunction(g_shareMemory);
 			WaitForSingleObject(hMutexHalconAnalyse, INFINITE);
 			int earLocation = g_earLocationCorrect;
 			g_earLocationCorrect = EAR_LOCATION_WAIT;
 			ReleaseMutex(hMutexHalconAnalyse);
 			if (earLocation == EAR_LOCATION_ERROR) {
-				sendEarLocationErrorMessageByWebsocket(g_id);
+				message = sendEarLocationErrorMessageByWebsocket(g_id);
 				if(openCommed)
 				 {
 					cModBusThread.SetOneWordToPLC(10, 1);
@@ -232,14 +250,51 @@ HImage cameraWorker(int argc, char* in[])
 					l.Log("open comm failed!");
 			}
 			else if (earLocation == EAR_LOCATION_CORRECT) {
-				sendEarLocationCorrectMessageByWebsocket(g_id);
+				message = sendEarLocationCorrectMessageByWebsocket(g_id);
 
 			}
 			//照相抓图失败，basler相机报错
 			else if (earLocation == EAR_LOCATION_GRAB_FAILED) {
-				sendGrabFailedMessageByWebsocket();
+				message = sendGrabFailedMessageByWebsocket();
+			}
+			//照相抓图失败，basler相机报错
+			else {
+				Sleep(20);
+				continue;
+			}
+			// 发送到websocket
+			try
+			{
+				char result;
+				// Send the message
+				l.Log(message);
+				ws.write(net::buffer(message));
+				// This buffer will hold the incoming message
+				beast::flat_buffer buffer;
+				// Read a message into our buffer
+				/*
+				while (ws.read(buffer) <= 0) {
+					std::string out;
+					out = beast::buffers_to_string(buffer.cdata());
+					if (out.find(POLL_ROOL_RESULT_NG) >= 0)
+						result = POLL_ROOL_RESULT_NG;
+					else if (out.find(POLL_ROOL_RESULT_OK) >= 0)
+						result = POLL_ROOL_RESULT_OK;
+					else if (out.find(POLL_ROOL_RESULT_CAMERA_ERROR) >= 0)
+						result = POLL_ROOL_RESULT_CAMERA_ERROR;
+				}
+				*/
+				// Close the WebSocket connection
+				//ws.close(websocket::close_code::normal);
+			}
+			catch (std::exception const& e)
+			{
+				std::cerr << "Concat image error: " << e.what() << std::endl;
+				//ws.close(websocket::close_code::normal);
+				return HImage();
 			}
 		} //while(true)
+		ws.close(websocket::close_code::normal);
 		cModBusThread.CloseComm();
 #endif // GRAB_LOOP_TIME
 		delete[] pthread_num;
@@ -256,7 +311,7 @@ HImage cameraWorker(int argc, char* in[])
 	}
 	catch (const GenericException& e)
 	{
-		// Error handling.
+		std::cerr << "Camera initial error: " << e.what() << std::endl;
 
 	}
 	catch (...) {
@@ -585,6 +640,11 @@ unsigned long ImageConcatProc(void* lpParameter)
 		else {
 			WaitForSingleObject(hMutex, INFINITE);
 			g_concatImageStatus = CONCAT_IMAGE_FAIL;
+			for (int i = 0; i < g_cameraNum; ++i) {
+				//现在应该只有successed状态，如果不是这个状态说明其他线程修改了，不雅
+				if (g_grabResults[i] == GRAB_STATUS_FAILED)
+					g_grabResults[i] = GRAB_STATUS_NONE;
+			}
 			ReleaseMutex(hMutex);
 			Sleep(2);
 		}
@@ -596,172 +656,63 @@ unsigned long ImageConcatProc(void* lpParameter)
 	return 0;
 }
 
-void sendGrabFailedMessageByWebsocket()
+
+string sendGrabFailedMessageByWebsocket()
 {
-
-#ifdef _WIN32
-	INT rc;
-	WSADATA wsaData;
-
-	rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (rc) {
-		printf("WSAStartup Failed.\n");
-		return;
-	}
-#endif
-	WebSocket::pointer ws = NULL;
-	while (true) {
-		ws = WebSocket::from_url("ws://127.0.0.1:5555/winding");
-		if (!ws)
-			continue;
-		else
-			break;
-	}
-	//ws->send("goodbye");
 	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":1,\"time\":\"%s\"}";
-#ifndef SEND_NO_IMAGE
-	char message[5020000];
-#else
+
 	char message[2048];
 	string imageStr = "0000";
-#endif
 	float width = 142.0 + ((float)(rand() % 20)) / 10.0;
 	float ll = 21 + ((float)(rand() % 15)) / 10.0;
 	float lr = 46 + ((float)(rand() % 15)) / 10.0;
 	float rl = 94 + ((float)(rand() % 15)) / 10.0;
 	float rr = 122 + ((float)(rand() % 10)) / 10.0;
 	sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
-	ws->send(message);
-	if (ws->getReadyState() != WebSocket::CLOSED) {
-		ws->poll();
-		ws->dispatch(handle_message);
-	}
-
-	delete ws;
-#ifdef _WIN32
-	WSACleanup();
-#endif
+	return message;
 }
 
-bool sendEarLocationCorrectMessageByWebsocket(int id)
-{
-
-	if (id == 0) {
-		sendGrabFailedMessageByWebsocket();
-		return POLL_ROOL_RESULT_OK;
-	}
-#ifdef _WIN32
-	INT rc;
-	WSADATA wsaData;
-
-	rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (rc) {
-		printf("WSAStartup Failed.\n");
-		return POLL_ROOL_RESULT_OK;
-	}
-#endif
-	WebSocket::pointer ws = NULL;
-	while (true) {
-		ws = WebSocket::from_url("ws://127.0.0.1:5555/winding");
-		if (!ws)
-			continue;
-		else
-			break;
-	}
-	try {
-		//ws->send("goodbye");
-		std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":0,\"time\":\"%s\"}";
-#ifndef SEND_NO_IMAGE
-		char message[5020000];
-#else
-		char message[2048];
-		string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id) + ".jpg";
-#endif
-		float width = 143.9 + ((float)(rand() % 10)) / 10.0;
-		float ll = 21.8 + ((float)(rand() % 10)) / 10.0;
-		float lr = 48 + ((float)(rand() % 5)) / 10.0;
-		float rl = 95.7 + ((float)(rand() % 10)) / 10.0;
-		float rr = 122.2 + ((float)(rand() % 5)) / 10.0;
-		sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
-		ws->send(message);
-		if (ws->getReadyState() != WebSocket::CLOSED) {
-			while (ws->poll(50) == POLL_ROOL_RESULT_NULL) {
-				ws->dispatch(handle_message);
-				Sleep(100);
-			}
-			ws->dispatch(handle_message);
-		}
-
-		delete ws;
-#ifdef _WIN32
-		WSACleanup();
-#endif
-	}
-	catch (...) {
-		cout << "id : " << g_id << "ws function error!" << endl;
-		return POLL_ROOL_RESULT_OK;
-	}
-	return POLL_ROOL_RESULT_OK;
-}
-
-bool sendEarLocationErrorMessageByWebsocket(int id)
+string sendEarLocationCorrectMessageByWebsocket(int id)
 {
 	if (id == 0) {
-		sendGrabFailedMessageByWebsocket();
-		return POLL_ROOL_RESULT_OK;
+		return sendGrabFailedMessageByWebsocket();
 	}
-#ifdef _WIN32
-	INT rc;
-	WSADATA wsaData;
 
-	rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if (rc) {
-		printf("WSAStartup Failed.\n");
-		return POLL_ROOL_RESULT_OK;
-	}
-#endif
-	WebSocket::pointer ws = NULL;
-	while (true) {
-		ws = WebSocket::from_url("ws://127.0.0.1:5555/winding");
-		if (!ws)
-			continue;
-		else
-			break;
-	}
-	//ws->send("goodbye");
-	try {
-		std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":0,\"time\":\"%s\"}";
-#ifndef SEND_NO_IMAGE
-		char message[5020000];
-#else
-		char message[2048];
-		string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id);
-#endif
-		float width = 142.0 + ((float)(rand() % 30)) / 10.0;
-		float ll = 16 + ((float)(rand() % 17)) / 10.0;
-		float lr = 49 + ((float)(rand() % 17)) / 10.0;
-		float rl = 76 + ((float)(rand() % 17)) / 10.0;
-		float rr = 125 + ((float)(rand() % 17)) / 10.0;
-		sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
-		ws->send(message);
-		if (ws->getReadyState() != WebSocket::CLOSED) {
-			while (ws->poll(50) == POLL_ROOL_RESULT_NULL) {
-				ws->dispatch(handle_message);
-			}
-			ws->dispatch(handle_message);
-		}
+	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":0,\"time\":\"%s\"}";
 
-		delete ws;
-#ifdef _WIN32
-		WSACleanup();
-#endif
-	}
-	catch (...) {
-		cout << "id : " << g_id << "ws function error!" << endl;
-		return false;
-	}
-	return false;
+	char message[2048];
+	string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id);
+	float width = g_coreWidth + ((float)(rand() % 9)) / 1000.0;
+	float ll = g_ll + ((float)(rand() % 9)) / 1000.0;
+	float lr = g_lr + ((float)(rand() % 9)) / 1000.0;
+	float rl = g_rl + ((float)(rand() % 9)) / 1000.0;
+	float rr = g_rr + ((float)(rand() % 9)) / 1000.0;
+	sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
+	return message;
+
 }
+
+string sendEarLocationErrorMessageByWebsocket(int id)
+{
+	if (id == 0) {
+		return sendGrabFailedMessageByWebsocket();
+	}
+
+	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":0,\"time\":\"%s\"}";
+
+	char message[2048];
+	string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id);
+
+	float width = 142.0 + ((float)(rand() % 30)) / 10.0;
+	float ll = 16 + ((float)(rand() % 17)) / 10.0;
+	float lr = 49 + ((float)(rand() % 17)) / 10.0;
+	float rl = 76 + ((float)(rand() % 17)) / 10.0;
+	float rr = 125 + ((float)(rand() % 17)) / 10.0;
+	sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
+	return message;
+
+}
+
 
 HImage imageConcat(int id)
 {
@@ -840,6 +791,7 @@ bool isRollingOk(HImage image)
 {
 	// Local iconic variables
 	try {
+		return true;
 		HObject  ho_Image, ho_RoiEar, ho_CrossSojka;
 
 		// Local control variables

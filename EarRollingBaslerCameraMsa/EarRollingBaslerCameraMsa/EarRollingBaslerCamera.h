@@ -34,7 +34,8 @@ extern "C" {
 }
 
 HImage HByteToHImage(int width, int height, HBYTE* image);
-unsigned long grabProc(void* lpParameter);
+unsigned long triggerGrabProc(void* lpParameter);  //触发拍摄模式
+unsigned long intervalGrabProc(void* lpParameter); //定时拍摄模式
 unsigned long ImageConcatProc(void* lpParameter);
 string sendGrabFailedMessageByWebsocket();
 string sendEarLocationCorrectMessageByWebsocket(int id);
