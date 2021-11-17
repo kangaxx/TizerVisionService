@@ -10,7 +10,7 @@
 #include "ModbusThread.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera worker, version 2111011630"
+#define LIBRARY_COMPLIRE_VERSION "camera worker, version 2111121600"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 #define EAR_LOCATION_WAIT -2
 #define EAR_LOCATION_GRAB_FAILED -1
@@ -47,7 +47,7 @@ using namespace Basler_UniversalCameraParams;
 #include <pylon/gige/GigETransportLayer.h>
 #include <pylon/gige/ActionTriggerConfiguration.h>
 #include <pylon/gige/BaslerGigEDeviceInfo.h>
-
+#include "SerialPort.h"
 
 #ifndef CAMERA_ARRAY_MODE
 #ifndef FLAG_TEST_BY_LOCAL_FILE
@@ -69,6 +69,7 @@ static HImage g_concatImage;
 static HANDLE hMutex = NULL;//互斥量
 static HANDLE hMutexHalconAnalyse = NULL; //算法互斥量
 static float g_coreWidth, g_ll, g_lr, g_rl, g_rr;
+static char g_image[1024];
 //Enumeration used for distinguishing different events.
 enum MyEvents
 {
@@ -126,6 +127,11 @@ HImage cameraWorker(int argc, char* in[])
 {
 	try {
 		Logger l("d:");
+		g_coreWidth = 143.77 + ((float)(rand() % 5)) / 100.0;
+		g_ll = 22.47 + ((float)(rand() % 5)) / 100.0;
+		g_lr = 48.4 + ((float)(rand() % 5)) / 100.0;
+		g_rl = 94.55 + ((float)(rand() % 5)) / 100.0;
+		g_rr = 121.27 + ((float)(rand() % 5)) / 100.0;
 		l.Log(LIBRARY_COMPLIRE_VERSION);
 		//创建跨模块内存
 		// Before using any pylon methods, the pylon runtime must be initialized.
@@ -242,16 +248,20 @@ HImage cameraWorker(int argc, char* in[])
 			if (earLocation == EAR_LOCATION_ERROR) {
 				message = sendEarLocationErrorMessageByWebsocket(g_id);
 				if(openCommed)
-				 {
+				{
 					cModBusThread.SetOneWordToPLC(10, 1);
 					l.Log("open comm success!");
 				}
 				else
 					l.Log("open comm failed!");
+				strcpy_s(g_image, "error");
+				g_halconFunction(g_image);
 			}
 			else if (earLocation == EAR_LOCATION_CORRECT) {
 				message = sendEarLocationCorrectMessageByWebsocket(g_id);
-
+				strcpy_s(g_image, "correct");
+				g_halconFunction(g_image);
+				//g_halconFunction(g_concatImage); //debug test, 回调函数 gxx 20211112
 			}
 			//照相抓图失败，basler相机报错
 			else if (earLocation == EAR_LOCATION_GRAB_FAILED) {
@@ -481,7 +491,7 @@ HImage cameraWorker(int argc, char* in[])
 
 void setHalconFunction(callHalconFunc func)
 {
-	halconFunction = func;
+	g_halconFunction = func;
 }
 
 HImage HByteToHImage(int width, int height, HBYTE* image)
@@ -623,6 +633,8 @@ unsigned long ImageConcatProc(void* lpParameter)
 				continue;
 			}
 			g_concatImage = image; //by gxx ,后续需要优化，和前一句合并，，完了将下面的isRollingOK等算法挪到算法library里去
+			string fileName = "d:/grabs/trigger_" + commonfunction_c::BaseFunctions::Int2Str(g_id) + ".jpg";
+			g_concatImage.WriteImage("jpg", 0, fileName.c_str());
 			WaitForSingleObject(hMutexHalconAnalyse, INFINITE);
 			if (isRollingOk(image))
 				g_earLocationCorrect = EAR_LOCATION_CORRECT;
@@ -656,6 +668,43 @@ unsigned long ImageConcatProc(void* lpParameter)
 	return 0;
 }
 
+void switchTrigger485(int port)
+{
+	CSerialPort sp;
+	TCHAR szPort[MAX_PATH];
+	_stprintf_s(szPort, MAX_PATH, _T("COM%d"), port);
+	sp.Open(szPort, 9600UL);
+	if (sp.IsOpen()) {
+		std::cout << "sp is open" << std::endl;
+		byte value[8];
+		value[0] = 0x01;
+		value[1] = 0x06;
+		value[2] = 0x00;
+		value[3] = 0x00;
+		value[4] = 0x00;
+		value[5] = 0x01;
+		value[6] = 0x48;
+		value[7] = 0x0A;
+		//out 1 开启
+		sp.Write((void*)(&value[0]), 8);
+
+		Sleep(300);
+		value[0] = 0x01;
+		value[1] = 0x06;
+		value[2] = 0x00;
+		value[3] = 0x01;
+		value[4] = 0x00;
+		value[5] = 0x01;
+		value[6] = 0x19;
+		value[7] = 0xCA;
+		//out 1 关闭
+		sp.Write((void*)(&value[0]), 8);
+	}
+	else
+		std::cout << "sp is close" << std::endl;
+	sp.Close();
+	return;
+}
 
 string sendGrabFailedMessageByWebsocket()
 {
@@ -669,6 +718,7 @@ string sendGrabFailedMessageByWebsocket()
 	float rl = 94 + ((float)(rand() % 15)) / 10.0;
 	float rr = 122 + ((float)(rand() % 10)) / 10.0;
 	sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
+
 	return message;
 }
 
@@ -689,7 +739,6 @@ string sendEarLocationCorrectMessageByWebsocket(int id)
 	float rr = g_rr + ((float)(rand() % 9)) / 1000.0;
 	sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
 	return message;
-
 }
 
 string sendEarLocationErrorMessageByWebsocket(int id)
@@ -791,7 +840,6 @@ bool isRollingOk(HImage image)
 {
 	// Local iconic variables
 	try {
-		return true;
 		HObject  ho_Image, ho_RoiEar, ho_CrossSojka;
 
 		// Local control variables

@@ -25,10 +25,10 @@ using namespace fastdelegate;
 using namespace HalconCpp;
 class LibraryLoader;
 
-void delegateFunction(string);
+void delegateFunction(char*);
 typedef char** (*halconFunc)(int, char*[], HImage, char**);
 typedef HImage (*cameraWork)(int, char* []);
-typedef void (*callHalconFunc)(string);
+typedef void (*callHalconFunc)(char*);
 typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [], HBYTE[]));
 typedef void (*setHalconFunction)(callHalconFunc);
 
@@ -177,8 +177,8 @@ int main()
 
 
 
-void delegateFunction(string msg) {
-	cout << "from dll , result is : " << msg << endl;
+void delegateFunction(char* image) {
+	cout << "frome delegate word is : " << image << endl;
 	return;
 }
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单

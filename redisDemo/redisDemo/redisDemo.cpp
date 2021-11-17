@@ -12,8 +12,17 @@ int main(int argc, char** argv)
 		Redis redis = Redis("tcp://127.0.0.1:6379");
 		StringView key = "key";
 		StringView value = "test rcc";
+		
 		redis.set(key, value);
 		OptionalString val = redis.get("key");
+		if (val) {
+			std::cout << *val << std::endl;
+		}
+		char listValue[10];
+		std::cin >> listValue;
+		redis.lpush("list", StringView(listValue));
+		val = redis.lpop("list");
+		redis.lpush("list", StringView(listValue));
 		if (val) {
 			std::cout << *val << std::endl;
 		}

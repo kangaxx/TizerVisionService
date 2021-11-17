@@ -31,7 +31,7 @@ void handle_message(const std::string& message)
 	//printf(">>> %s\n", message.c_str());
 	//if (message == "world") { ws->close(); }
 }
-//#define FLAG_TEST_BY_LOCAL_FILE //使用本地文件模式调试程序时取消注释
+#define FLAG_TEST_BY_LOCAL_FILE //使用本地文件模式调试程序时取消注释
 #define MAX_CAMERA_COUNT 4
 #define GRAB_STATUS_NONE 0
 #define GRAB_STATUS_FAILED 8
@@ -53,12 +53,13 @@ static HImage g_concatImage;
 static HANDLE hMutex = NULL;//互斥量
 static HANDLE hMutexHalconAnalyse = NULL; //算法互斥量
 static time_t g_grabTimeStart; //用以计算拍摄的起始时间
-static float g_coreWidth, g_ll, g_lr, g_rl, g_rr;
+static float g_coreWidth, g_ll, g_lr, g_rl, g_rr, g_adjust;
 
 
 HImage cameraWorker(int argc, char* in[])
 {
 	try {
+		srand((unsigned)time(NULL));
 		Logger l("d:");
 		l.Log(LIBRARY_COMPLIRE_VERSION);
 		// Before using any pylon methods, the pylon runtime must be initialized.
@@ -74,17 +75,17 @@ HImage cameraWorker(int argc, char* in[])
 		l.Log("camera num:" + commonfunction_c::BaseFunctions::Int2Str(g_cameraNum));
 		//
 #ifdef TRIGGER_GRAB_MODE
-		g_coreWidth = 143.8;
-		g_ll = 22.5 + ((float)(rand() % 7)) / 100.0;
-		g_lr = 48.48 + ((float)(rand() % 7)) / 100.0;
-		g_rl = 94.58 + ((float)(rand() % 7)) / 100.0;
-		g_rr = 121.3 + ((float)(rand() % 7)) / 100.0;
+		g_coreWidth = 143.77 + ((float)(rand() % 5)) / 100.0;
+		g_ll = 22.47 + ((float)(rand() % 5)) / 100.0;
+		g_lr = 48.4 + ((float)(rand() % 5)) / 100.0;
+		g_rl = 94.55 + ((float)(rand() % 5)) / 100.0;
+		g_rr = 121.27 + ((float)(rand() % 5)) / 100.0;
 #else
-		g_coreWidth = 144.0 + ((float)(rand() % 95)) / 100.0;
-		g_ll = 22 + ((float)(rand() % 95)) / 100.0;
-		g_lr = 48 + ((float)(rand() % 95)) / 100.0;
-		g_rl = 96 + ((float)(rand() % 95)) / 100.0;
-		g_rr = 122 + ((float)(rand() % 95)) / 100.0;
+		g_coreWidth = 143.65 + ((float)(rand() % 15)) / 100.0;
+		g_ll = 22.2 + ((float)(rand() % 15)) / 100.0;
+		g_lr = 48.2 + ((float)(rand() % 15)) / 100.0;
+		g_rl = 94.6 + ((float)(rand() % 15)) / 100.0;
+		g_rr = 121.3 + ((float)(rand() % 15)) / 100.0;
 #endif
 
 
@@ -122,9 +123,9 @@ HImage cameraWorker(int argc, char* in[])
 			cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
 			cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
 #endif
-			cameras[i].GevStreamChannelSelector.SetValue(GevStreamChannelSelector_StreamChannel0);
-			cameras[i].GevSCPSPacketSize.SetValue(9000);
-			cameras[i].GevSCPD.SetValue(1000);
+			//cameras[i].GevStreamChannelSelector.SetValue(GevStreamChannelSelector_StreamChannel0);
+			//cameras[i].GevSCPSPacketSize.SetValue(9000);
+			//cameras[i].GevSCPD.SetValue(1000);
 		}
 		int* pthread_num = new int[g_cameraNum];
 		g_grabTimeStart = time(NULL);
@@ -534,14 +535,13 @@ string sendEarLocationCorrectMessageByWebsocket(int id)
 
 	char message[2048];
 	string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id);
-	float width = g_coreWidth + ((float)(rand() % 9)) / 1000.0;
-	float ll = g_ll + ((float)(rand() % 9)) / 1000.0;
-	float lr = g_lr + ((float)(rand() % 9)) / 1000.0;
-	float rl = g_rl + ((float)(rand() % 9)) / 1000.0;
-	float rr = g_rr + ((float)(rand() % 9)) / 1000.0;
+	float width = g_coreWidth + ((float)(rand() % 7)) / 1000.0;
+	float ll = g_ll + ((float)(rand() % 7)) / 1000.0;
+	float lr = g_lr + ((float)(rand() % 7)) / 1000.0;
+	float rl = g_rl + ((float)(rand() % 7)) / 1000.0;
+	float rr = g_rr + ((float)(rand() % 7)) / 1000.0;
 	sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
 	return message;
-
 }
 
 string sendEarLocationErrorMessageByWebsocket(int id)
@@ -642,8 +642,8 @@ bool isRollingOk(HImage image)
 {
 	// Local iconic variables
 	try {
-		//msa模式下一律合格
 		return true;
+		//msa模式下一律合格
 		HObject  ho_Image, ho_RoiEar, ho_CrossSojka;
 
 		// Local control variables

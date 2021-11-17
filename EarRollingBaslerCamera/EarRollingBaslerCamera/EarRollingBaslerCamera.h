@@ -34,8 +34,8 @@ namespace websocket = beast::websocket; // from <boost/beast/websocket.hpp>
 namespace net = boost::asio;            // from <boost/asio.hpp>
 using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
-typedef void (*callHalconFunc)(HANDLE, LPVOID);
-static callHalconFunc halconFunction = nullptr;
+typedef void (*callHalconFunc)(char*);
+static callHalconFunc g_halconFunction = nullptr;
 extern "C" {
 	__declspec(dllexport) HImage cameraWorker(int argc, char* in[]);
 	__declspec(dllexport) void setHalconFunction(callHalconFunc func);
@@ -47,6 +47,7 @@ unsigned long ImageConcatProc(void* lpParameter);
 string sendGrabFailedMessageByWebsocket();
 string sendEarLocationCorrectMessageByWebsocket(int id);
 string sendEarLocationErrorMessageByWebsocket(int id);
+void switchTrigger485(int);
 HImage imageConcat(int id);
 //以下算法部分后续要移到rolling halcon library里 gxx
 enum eWidthLocateDirect

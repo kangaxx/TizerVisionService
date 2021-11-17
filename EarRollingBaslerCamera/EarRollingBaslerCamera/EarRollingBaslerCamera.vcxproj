@@ -78,7 +78,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\boost_1_76_0;D:\basler\Development\Samples\C++\include;D:\basler\Development\include;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
+    <IncludePath>D:\github\hds;D:\boost_1_76_0;D:\basler\Development\Samples\C++\include;D:\basler\Development\include;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(VC_IncludePath);$(WindowsSDK_IncludePath)</IncludePath>
     <LibraryPath>D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);D:\boost_1_76_0\libs;$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64)</LibraryPath>
     <OutDir>D:\github\TizerVisionService\LibraryLoaderConsole\x64\Debug</OutDir>
   </PropertyGroup>
@@ -149,6 +149,7 @@
     <ClCompile Include="Modbus\crc16.cpp" />
     <ClCompile Include="Modbus\LocalModbus.cpp" />
     <ClCompile Include="Modbus\modbus.cpp" />
+    <ClCompile Include="SerialPort.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EarRollingBaslerCamera.h" />
@@ -158,6 +159,7 @@
     <ClInclude Include="Modbus\LocalModbus.h" />
     <ClInclude Include="Modbus\modbus.h" />
     <ClInclude Include="Modbus\ModbusMessages.h" />
+    <ClInclude Include="SerialPort.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

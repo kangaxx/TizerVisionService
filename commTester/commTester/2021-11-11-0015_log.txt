@@ -1,0 +1,3 @@
+CSerialPort::Open, Failed to open the comms port, Error:123
+\\.\COM2
+OpenCOM is OK
