@@ -80,8 +80,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\basler\Development\include;$(HALCONROOT)\include\halconcpp;$(ZMQ_ROOT);$(HALCONROOT)\include;D:\boost_1_76_0;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\basler\Development\lib\x64;$(ZMQ_ROOT);$(HALCONROOT)\lib\$(HALCONARCH);D:\boost_1_76_0\libs;$(LibraryPath)</LibraryPath>
+    <IncludePath>D:\basler\Development\include;$(HALCONROOT)\include\halconcpp;$(ZMQ_ROOT);$(HALCONROOT)\include;D:\boost_1_76_0;D:\github\redis-5.0.10\redis-5.0.10\deps;D:\github\redis-plus-plus\src\sw\redis++;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\basler\Development\lib\x64;$(ZMQ_ROOT);$(HALCONROOT)\lib\$(HALCONARCH);D:\boost_1_76_0\libs;C:\redis++;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -122,12 +122,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <AdditionalIncludeDirectories>D:\github\redis-plus-plus\src\sw\redis++\tls;D:\github\redis-plus-plus\src\sw\redis++\cxx17;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(HALCONROOT)\lib\$(HALCONARCH)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>halconcpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(HALCONROOT)\lib\$(HALCONARCH);C:\redis++</AdditionalLibraryDirectories>
+      <AdditionalDependencies>halconcpp.lib;redis++_static.lib;winmm.lib;Win32_Interop.lib;hiredis.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <HeapCommitSize>
       </HeapCommitSize>
       <LargeAddressAware>true</LargeAddressAware>

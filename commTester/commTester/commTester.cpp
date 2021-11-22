@@ -10,7 +10,7 @@ void run(int);
 int main()
 {
     int wait, port;
-    port = 2; //默认2号口
+    port = 1; //默认2号口
     std::cout << "version no. " << STR_VERSION_NUM << std::endl;
     while (true) {
         std::cout << "请选择想要执行的命令" << std::endl;

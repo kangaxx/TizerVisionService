@@ -2,6 +2,7 @@
 #include <UserEnv.h>
 #include "../../../hds/FastDelegate.h"
 #include "../../../hds/Logger.h"
+#include "../../../hds/configHelper.h"
 #include "HalconCpp.h"
 #include "HDevThread.h"
 #include <pylon/PylonIncludes.h>
@@ -58,3 +59,5 @@ enum eWidthLocateDirect
 bool isRollingOk(HImage image); //判断电池是否合格，true为合格 false为不合格
 float getRollingWidth(HImage image); //宽度计算
 int getRollingEdgeVertical(HImage image, eWidthLocateDirect direct, int xMin, int xMax, int yMin, int yMax); //横向极值点
+void redisLPush(string key, string value);
+string redisRPop(string key);

@@ -1,6 +1,10 @@
 // LibraryLoaderConsole.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
 //
 
+#include <redis++.h>
+#include <cstdio>
+#include <unordered_set>
+
 #include <iostream>
 #include <Windows.h>
 
@@ -23,8 +27,9 @@
 #endif
 using namespace fastdelegate;
 using namespace HalconCpp;
+using namespace sw::redis;
 class LibraryLoader;
-
+ 
 void delegateFunction(char*);
 typedef char** (*halconFunc)(int, char*[], HImage, char**);
 typedef HImage (*cameraWork)(int, char* []);
@@ -103,16 +108,46 @@ public:
 		}
 		//测试委托
 		setFunc(delegateFunction);
-		char* in[2];
-		in[0] = new char();
-		in[1] = new char();
+
+		string cameraLeftName = ch.findValue("cameraLeftName", string("string"));
+		string cameraMidName = ch.findValue("cameraMidName", string("string"));
+		string cameraRightName = ch.findValue("cameraRightName", string("string"));
+		cout << "cameraLeftName: " << cameraLeftName << endl;
+		char* in[5];
+		char leftCamera[50], midCamera[50], rightCamera[50];
+		strcpy_s(leftCamera, cameraLeftName.c_str());
+		strcpy_s(midCamera, cameraMidName.c_str());
+		strcpy_s(rightCamera, cameraRightName.c_str());
+		in[0] = &leftCamera[0];
+		in[1] = &midCamera[0];
+		in[2] = &rightCamera[0];
 		HImage image = cameraWorkFunc(0, in);
 		return image;
 	}
+
+	void lPush(string k, string v) {
+		Redis redis = Redis("tcp://127.0.0.1:6379");
+		StringView key = k.c_str();
+		StringView value = v.c_str();
+
+		redis.lpush(key, value);
+		return;
+	}
+
+	string rPop(string k) {
+		Redis redis = Redis("tcp://127.0.0.1:6379");
+		StringView key = k.c_str();
+
+		auto value = redis.rpop("list");
+		return value.value();
+	}
 };
+
+static LibraryLoader ll;
 
 int main()
 {
+
 	//创建共享内存
 	HANDLE hFile = CreateFile(L"Recv1.zip",
 		GENERIC_WRITE | GENERIC_READ,
@@ -145,7 +180,8 @@ int main()
 		std::cin >> index;
 		std::cout << "selected index :" << index << std::endl;
 		if (index == 0) return 0;
-		LibraryLoader ll;
+
+		
 		HImage image;
 		try {
 			image = ll.runCameraLib();
@@ -177,8 +213,8 @@ int main()
 
 
 
-void delegateFunction(char* image) {
-	cout << "frome delegate word is : " << image << endl;
+void delegateFunction(char* msg) {
+	ll.lPush("some key", msg);
 	return;
 }
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单

@@ -10,7 +10,7 @@
 #include "ModbusThread.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera worker, version 2111121600"
+#define LIBRARY_COMPLIRE_VERSION "camera worker, version 2111171530"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 #define EAR_LOCATION_WAIT -2
 #define EAR_LOCATION_GRAB_FAILED -1
@@ -133,6 +133,7 @@ HImage cameraWorker(int argc, char* in[])
 		g_rl = 94.55 + ((float)(rand() % 5)) / 100.0;
 		g_rr = 121.27 + ((float)(rand() % 5)) / 100.0;
 		l.Log(LIBRARY_COMPLIRE_VERSION);
+
 		//创建跨模块内存
 		// Before using any pylon methods, the pylon runtime must be initialized.
 		PylonInitialize();
@@ -145,7 +146,7 @@ HImage cameraWorker(int argc, char* in[])
 			l.Log("Error: No GigE transport layer installed.");
 		g_cameraNum = devices.size();
 		l.Log("camera num:" + commonfunction_c::BaseFunctions::Int2Str(g_cameraNum));
-
+		l.Log(in[0]);
 		// Create and attach all Pylon Devices.
 		g_earLocationCorrect = EAR_LOCATION_WAIT;
 		for (size_t i = 0; i < g_cameraNum; ++i)
@@ -155,17 +156,17 @@ HImage cameraWorker(int argc, char* in[])
 			String_t cameraName = cameras[i].GetDeviceInfo().GetFriendlyName();
 			l.Log("camera id : " + BaseFunctions::Int2Str(i) + " , Name is : " + cameraName.c_str());
 			//string _sn = cameras[i].GetDeviceInfo().GetSerialNumber();
-			if (cameraName == "Basler acA1920-25gm (23627359)") {
+			if (cameraName == in[0]) {
 				g_concatLocation[0] = i;
-				l.Log("left 23627359 camera id : " + BaseFunctions::Int2Str(i));
+				l.Log("left camera id : " + BaseFunctions::Int2Str(i));
 			}
-			else if (cameraName == "Basler acA1920-25gm (23891520)" && g_cameraNum > 1) {
+			else if (cameraName == in[1] && g_cameraNum > 1) {
 				g_concatLocation[1] = i;
-				l.Log("mid 23891520 camera id : " + BaseFunctions::Int2Str(i));
+				l.Log("mid camera id : " + BaseFunctions::Int2Str(i));
 			}
-			else if (cameraName == "Basler acA1920-25gm (23891524)" && g_cameraNum > 2) {
+			else if (cameraName == in[2] && g_cameraNum > 2) {
 				g_concatLocation[2] = i;
-				l.Log("right 23891524 camera id : " + BaseFunctions::Int2Str(i));
+				l.Log("right camera id : " + BaseFunctions::Int2Str(i));
 			}
 			cameras[i].MaxNumBuffer = 5;
 			cameras[i].Open();
@@ -176,30 +177,11 @@ HImage cameraWorker(int argc, char* in[])
 			cameras[i].LineMode.SetValue(LineMode_Input);
 			cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
 			cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
+			cameras[i].GevStreamChannelSelector.SetValue(GevStreamChannelSelector_StreamChannel0);
+			cameras[i].GevSCPSPacketSize.SetValue(9000);
+			cameras[i].GevSCPD.SetValue(1000);
 		}
-		// The io_context is required for all I/O
-		net::io_context ioc;
-		// These objects perform our I/O
-		tcp::resolver resolver{ ioc };
-		websocket::stream<tcp::socket> ws{ ioc };
-		auto const address = net::ip::make_address("127.0.0.1");
-		auto const port = static_cast<unsigned short>(std::atoi("5555"));
-		tcp::endpoint endpoint{ address, port };
-		// Look up the domain name
-		auto const results = resolver.resolve(endpoint);
-		// Make the connection on the IP address we get from a lookup
-		net::connect(ws.next_layer(), results.begin(), results.end());
-		//net::connect(ws.next_layer(), host, port);
-		// Set a decorator to change the User-Agent of the handshake
-		ws.set_option(websocket::stream_base::decorator(
-			[](websocket::request_type& req)
-			{
-				req.set(http::field::user_agent,
-					std::string(BOOST_BEAST_VERSION_STRING) +
-					" websocket-client-coro");
-			}));
-		// Perform the websocket handshake
-		ws.handshake("0.0.0.0", "/");
+		
 		int* pthread_num = new int[g_cameraNum];
 		for (size_t i = 0; i < g_cameraNum; ++i) {
 			pthread_num[i] = i;
@@ -232,11 +214,8 @@ HImage cameraWorker(int argc, char* in[])
 			
 		}
 #else
-		CModbusThread cModBusThread;
-		cModBusThread.SetComm(3, 19200);
-		bool openCommed = false;
-		if (cModBusThread.OpenComm())
-			openCommed = true;
+
+
 		string message;
 		while (true) {
 			Sleep(200);
@@ -247,25 +226,23 @@ HImage cameraWorker(int argc, char* in[])
 			ReleaseMutex(hMutexHalconAnalyse);
 			if (earLocation == EAR_LOCATION_ERROR) {
 				message = sendEarLocationErrorMessageByWebsocket(g_id);
-				if(openCommed)
-				{
-					cModBusThread.SetOneWordToPLC(10, 1);
-					l.Log("open comm success!");
-				}
-				else
-					l.Log("open comm failed!");
-				strcpy_s(g_image, "error");
+				strcpy_s(g_image, message.c_str());
 				g_halconFunction(g_image);
+				switchTrigger485(1);
+				strcpy_s(g_image, "error");
+				//g_halconFunction(g_image);
 			}
 			else if (earLocation == EAR_LOCATION_CORRECT) {
 				message = sendEarLocationCorrectMessageByWebsocket(g_id);
-				strcpy_s(g_image, "correct");
+				strcpy_s(g_image, message.c_str());
 				g_halconFunction(g_image);
 				//g_halconFunction(g_concatImage); //debug test, 回调函数 gxx 20211112
 			}
 			//照相抓图失败，basler相机报错
 			else if (earLocation == EAR_LOCATION_GRAB_FAILED) {
 				message = sendGrabFailedMessageByWebsocket();
+				strcpy_s(g_image, message.c_str());
+				g_halconFunction(g_image);
 			}
 			//照相抓图失败，basler相机报错
 			else {
@@ -278,7 +255,6 @@ HImage cameraWorker(int argc, char* in[])
 				char result;
 				// Send the message
 				l.Log(message);
-				ws.write(net::buffer(message));
 				// This buffer will hold the incoming message
 				beast::flat_buffer buffer;
 				// Read a message into our buffer
@@ -304,8 +280,6 @@ HImage cameraWorker(int argc, char* in[])
 				return HImage();
 			}
 		} //while(true)
-		ws.close(websocket::close_code::normal);
-		cModBusThread.CloseComm();
 #endif // GRAB_LOOP_TIME
 		delete[] pthread_num;
 
@@ -545,7 +519,7 @@ unsigned long grabProc(void* lpParameter)
 						const HBYTE* pImageBuffer;
 						pImageBuffer = (HBYTE*)ptrGrabResult->GetBuffer();
 						HObject ho_Image;
-						int w = 1920, h = 1080;
+						int w = ptrGrabResult->GetWidth(), h = ptrGrabResult->GetHeight();
 						GenImage1(&ho_Image, "byte", w, h, (Hlong)pImageBuffer);
 						HImage result;
 						result = ho_Image;
@@ -603,6 +577,7 @@ unsigned long ImageConcatProc(void* lpParameter)
 		for (int i = 0; i < g_cameraNum; ++i) {
 			if (g_grabResults[i] == GRAB_STATUS_FAILED) {
 				WaitForSingleObject(hMutex, INFINITE);
+
 				g_earLocationCorrect = EAR_LOCATION_GRAB_FAILED;
 				ReleaseMutex(hMutex);
 				doImageConcat = false;
@@ -1043,5 +1018,18 @@ int getRollingEdgeVertical(HImage image, eWidthLocateDirect direct, int xMin, in
 	return 0;
 }
 
+void redisLPush(string key, string value) {
+	try {
+
+	}
+	catch (...) {
+
+	}
+	return ;
+}
+
+string redisRPop(string key) {
+	return "";
+}
 
 #endif
