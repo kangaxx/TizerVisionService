@@ -10,18 +10,11 @@
 #include "ModbusThread.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera worker, version 2111171530"
+#define LIBRARY_COMPLIRE_VERSION "camera worker, version 2112071100"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
-#define EAR_LOCATION_WAIT -2
-#define EAR_LOCATION_GRAB_FAILED -1
-#define EAR_LOCATION_CORRECT 0
-#define EAR_LOCATION_ERROR 1
-#define CONCAT_IMAGE_NONE 0
-#define CONCAT_IMAGE_SUCCESS 1
-#define CONCAT_IMAGE_FAIL 2
-#define ROLLING_RESULT_NG false
-#define ROLLING_RESULT_OK true
 
+#define SAVE_IMAGE_PREFIX "d:/grabs/trigger_concat_"
+#define MODE_DEBUG
 //#define CAMERA_ARRAY_MODE
 void handle_message(const std::string& message)
 {
@@ -30,9 +23,7 @@ void handle_message(const std::string& message)
 }
 //#define FLAG_TEST_BY_LOCAL_FILE //使用本地文件模式调试程序时取消注释
 #define MAX_CAMERA_COUNT 4
-#define GRAB_STATUS_NONE 0
-#define GRAB_STATUS_FAILED 8
-#define GRAB_STATUS_SUCCESSED 1
+
 //#define GRAB_LOOP_TIME 1  //测试相机拍摄与算法两个lib分别执行时，取消注释，并将变量设置为1（只循环一次）， 如果将算法和拍摄都写在本算法里则需要注释本条
 using namespace commonfunction_c;
 using namespace Pylon;
@@ -59,7 +50,6 @@ static 	CBaslerUniversalInstantCamera cameras[MAX_CAMERA_COUNT];
 static int g_id = 0; //grab id;
 static int g_grabResults[MAX_CAMERA_COUNT];
 static HImage g_images[MAX_CAMERA_COUNT];
-static int g_earLocationCorrect = EAR_LOCATION_WAIT;//极耳位置检测 ： -1 拍摄失败， 0 极耳位置正确 1 极耳位置不正确
 static int g_concatLocation[3] = { 0, 1, 2 };
 static int g_concatImageStatus = CONCAT_IMAGE_NONE;
 static int g_activeThreadNum = 0; //活跃子线程数量
@@ -69,7 +59,7 @@ static HImage g_concatImage;
 static HANDLE hMutex = NULL;//互斥量
 static HANDLE hMutexHalconAnalyse = NULL; //算法互斥量
 static float g_coreWidth, g_ll, g_lr, g_rl, g_rr;
-static char g_image[1024];
+static char g_message[1024];
 //Enumeration used for distinguishing different events.
 enum MyEvents
 {
@@ -148,7 +138,7 @@ HImage cameraWorker(int argc, char* in[])
 		l.Log("camera num:" + commonfunction_c::BaseFunctions::Int2Str(g_cameraNum));
 		l.Log(in[0]);
 		// Create and attach all Pylon Devices.
-		g_earLocationCorrect = EAR_LOCATION_WAIT;
+
 		for (size_t i = 0; i < g_cameraNum; ++i)
 		{
 			g_grabResults[i] = GRAB_STATUS_NONE;
@@ -177,9 +167,13 @@ HImage cameraWorker(int argc, char* in[])
 			cameras[i].LineMode.SetValue(LineMode_Input);
 			cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
 			cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
+
+#ifdef DEBUG_MODE
 			cameras[i].GevStreamChannelSelector.SetValue(GevStreamChannelSelector_StreamChannel0);
-			cameras[i].GevSCPSPacketSize.SetValue(9000);
+			cameras[i].GevSCPSPacketSize.SetValue(7000);
 			cameras[i].GevSCPD.SetValue(1000);
+#endif // DEBUG_MODE
+
 		}
 		
 		int* pthread_num = new int[g_cameraNum];
@@ -216,33 +210,27 @@ HImage cameraWorker(int argc, char* in[])
 #else
 
 
-		string message;
 		while (true) {
 			Sleep(200);
 			//先测试以下共享内存
 			WaitForSingleObject(hMutexHalconAnalyse, INFINITE);
-			int earLocation = g_earLocationCorrect;
-			g_earLocationCorrect = EAR_LOCATION_WAIT;
+			int concatStatus = g_concatImageStatus;
+			g_concatImageStatus = CONCAT_IMAGE_NONE;
 			ReleaseMutex(hMutexHalconAnalyse);
-			if (earLocation == EAR_LOCATION_ERROR) {
-				message = sendEarLocationErrorMessageByWebsocket(g_id);
-				strcpy_s(g_image, message.c_str());
-				g_halconFunction(g_image);
-				switchTrigger485(1);
-				strcpy_s(g_image, "error");
-				//g_halconFunction(g_image);
+			std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"status\":%d,\"time\":\"%s\"}";
+
+			char message[2048];
+
+			string imageStr = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(g_id);
+			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), concatStatus, "2021-01-01 12:00:01");
+			strcpy_s(g_message, message);
+
+			if (concatStatus == CONCAT_IMAGE_FAIL) {
+				g_halconFunction(g_message);
+				switchTrigger485(1); //debug gxx ,need to remove to main program
 			}
-			else if (earLocation == EAR_LOCATION_CORRECT) {
-				message = sendEarLocationCorrectMessageByWebsocket(g_id);
-				strcpy_s(g_image, message.c_str());
-				g_halconFunction(g_image);
-				//g_halconFunction(g_concatImage); //debug test, 回调函数 gxx 20211112
-			}
-			//照相抓图失败，basler相机报错
-			else if (earLocation == EAR_LOCATION_GRAB_FAILED) {
-				message = sendGrabFailedMessageByWebsocket();
-				strcpy_s(g_image, message.c_str());
-				g_halconFunction(g_image);
+			else if (concatStatus == CONCAT_IMAGE_SUCCESS) {
+				g_halconFunction(g_message);
 			}
 			//照相抓图失败，basler相机报错
 			else {
@@ -475,7 +463,7 @@ HImage HByteToHImage(int width, int height, HBYTE* image)
 	return ho_Image;
 }
 
-#ifndef CAMERA_ARRAY_MODE
+
 unsigned long grabProc(void* lpParameter)
 {
 	//WaitForSingleObject(hMutex, INFINITE);
@@ -485,6 +473,7 @@ unsigned long grabProc(void* lpParameter)
 	bool isGrabbed = false;
 	Logger l("d:");
 	l.Log("grab id : " + BaseFunctions::Int2Str(i));
+
 	try {
 		//for (int x = 0; x < 5; x++){ //调式版，只跑几次免得锁死相机
 		//int x = 0;
@@ -573,30 +562,34 @@ unsigned long ImageConcatProc(void* lpParameter)
 		//else {
 			//ReleaseMutex(hMutex);
 		//}
-		bool doImageConcat = true;
+		int doImageConcat = GRAB_STATUS_NONE;
 		for (int i = 0; i < g_cameraNum; ++i) {
 			if (g_grabResults[i] == GRAB_STATUS_FAILED) {
 				WaitForSingleObject(hMutex, INFINITE);
 
-				g_earLocationCorrect = EAR_LOCATION_GRAB_FAILED;
+				g_concatImageStatus = CONCAT_IMAGE_FAIL;
 				ReleaseMutex(hMutex);
-				doImageConcat = false;
+				doImageConcat = GRAB_STATUS_FAILED;
 				break;
 			}
 			else if (g_grabResults[i] == GRAB_STATUS_NONE) {
-				doImageConcat = false;
+				doImageConcat = GRAB_STATUS_NONE;
 				break;
 			}
 		}
-		if (doImageConcat) {
+		HImage image;
+		string fileName = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(g_id) + ".jpg";
+		switch (doImageConcat)
+		{
+		case GRAB_STATUS_SUCCESSED:
 			WaitForSingleObject(hMutex, INFINITE);
 			g_id++;
 			ReleaseMutex(hMutex);
-			HImage image;
 			try {
 				image = imageConcat(g_id);
 			}
 			catch (...) {
+				g_concatImageStatus = CONCAT_IMAGE_FAIL;
 				l.Log("Image concat failed!");
 				WaitForSingleObject(hMutex, INFINITE);
 				for (int i = 0; i < g_cameraNum; ++i) {
@@ -608,14 +601,8 @@ unsigned long ImageConcatProc(void* lpParameter)
 				continue;
 			}
 			g_concatImage = image; //by gxx ,后续需要优化，和前一句合并，，完了将下面的isRollingOK等算法挪到算法library里去
-			string fileName = "d:/grabs/trigger_" + commonfunction_c::BaseFunctions::Int2Str(g_id) + ".jpg";
+			g_concatImageStatus = CONCAT_IMAGE_SUCCESS;
 			g_concatImage.WriteImage("jpg", 0, fileName.c_str());
-			WaitForSingleObject(hMutexHalconAnalyse, INFINITE);
-			if (isRollingOk(image))
-				g_earLocationCorrect = EAR_LOCATION_CORRECT;
-			else
-				g_earLocationCorrect = EAR_LOCATION_ERROR;
-			ReleaseMutex(hMutexHalconAnalyse);
 			WaitForSingleObject(hMutex, INFINITE);
 			for (int i = 0; i < g_cameraNum; ++i) {
 				//现在应该只有successed状态，如果不是这个状态说明其他线程修改了，不雅
@@ -623,8 +610,11 @@ unsigned long ImageConcatProc(void* lpParameter)
 					g_grabResults[i] = GRAB_STATUS_NONE;
 			}
 			ReleaseMutex(hMutex);
-		}
-		else {
+			break;
+		case GRAB_STATUS_NONE:
+			g_concatImageStatus = CONCAT_IMAGE_NONE;
+			break;
+		case GRAB_STATUS_FAILED:
 			WaitForSingleObject(hMutex, INFINITE);
 			g_concatImageStatus = CONCAT_IMAGE_FAIL;
 			for (int i = 0; i < g_cameraNum; ++i) {
@@ -634,8 +624,10 @@ unsigned long ImageConcatProc(void* lpParameter)
 			}
 			ReleaseMutex(hMutex);
 			Sleep(2);
+			break;
+		default:
+			break;
 		}
-
 	} //while(!g_stopThread)
 	//WaitForSingleObject(hMutex, INFINITE);
 	//g_activeThreadNum--;
@@ -681,40 +673,9 @@ void switchTrigger485(int port)
 	return;
 }
 
-string sendGrabFailedMessageByWebsocket()
-{
-	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":1,\"time\":\"%s\"}";
 
-	char message[2048];
-	string imageStr = "0000";
-	float width = 142.0 + ((float)(rand() % 20)) / 10.0;
-	float ll = 21 + ((float)(rand() % 15)) / 10.0;
-	float lr = 46 + ((float)(rand() % 15)) / 10.0;
-	float rl = 94 + ((float)(rand() % 15)) / 10.0;
-	float rr = 122 + ((float)(rand() % 10)) / 10.0;
-	sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
 
-	return message;
-}
-
-string sendEarLocationCorrectMessageByWebsocket(int id)
-{
-	if (id == 0) {
-		return sendGrabFailedMessageByWebsocket();
-	}
-
-	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":0,\"time\":\"%s\"}";
-
-	char message[2048];
-	string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id);
-	float width = g_coreWidth + ((float)(rand() % 9)) / 1000.0;
-	float ll = g_ll + ((float)(rand() % 9)) / 1000.0;
-	float lr = g_lr + ((float)(rand() % 9)) / 1000.0;
-	float rl = g_rl + ((float)(rand() % 9)) / 1000.0;
-	float rr = g_rr + ((float)(rand() % 9)) / 1000.0;
-	sprintf_s(message, 2048, messageFmt.c_str(), id, imageStr.c_str(), width, ll, lr, rl, rr, "2021-01-01 12:00:01");
-	return message;
-}
+/*
 
 string sendEarLocationErrorMessageByWebsocket(int id)
 {
@@ -725,7 +686,7 @@ string sendEarLocationErrorMessageByWebsocket(int id)
 	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":0,\"time\":\"%s\"}";
 
 	char message[2048];
-	string imageStr = "d:/Grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(id);
+	string imageStr = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(id);
 
 	float width = 142.0 + ((float)(rand() % 30)) / 10.0;
 	float ll = 16 + ((float)(rand() % 17)) / 10.0;
@@ -736,7 +697,7 @@ string sendEarLocationErrorMessageByWebsocket(int id)
 	return message;
 
 }
-
+*/
 
 HImage imageConcat(int id)
 {
@@ -765,34 +726,36 @@ HImage imageConcat(int id)
 	hv_adjustMidX = (hv_LeftColEnd - hv_LeftColStart) - hv_MidColStart;
 	hv_adjustRightX = (hv_adjustMidX + hv_MidColEnd) - hv_RightColStart;
 	ho_ImageLeft = images[0];
-	ho_ImageMid = images[1];
-	string fileNameLeft = "d:/grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(g_id) + "_1.jpg";
-	string fileNameMid = "d:/grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(g_id) + "_2.jpg";
+	
+	string fileNameLeft = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(g_id) + "_1.jpg";
 	HImage(ho_ImageLeft).WriteImage("jpg", 0, fileNameLeft.c_str());
-	HImage(ho_ImageMid).WriteImage("jpg", 0, fileNameMid.c_str());
+
 	//ReadImage(&ho_ImageLeft, "D:/Images/27_1.bmp");
-	//ReadImage(&ho_ImageMid, "D:/Images/27_2.bmp");
 	hv_Width = 1920;
 	hv_Height = 1080;
 	//GetImageSize(ho_ImageMid, &hv_Width, &hv_Height);
 	GenImageConst(&ho_ImageConcat, "byte", (((((hv_LeftColEnd + hv_MidColEnd) + hv_RightColEnd) - hv_LeftColStart) - hv_MidColStart) - hv_RightColStart) + 3,
 		hv_Height);
 	GenRectangle1(&ho_RegionLeft, 0, hv_LeftColStart, hv_Height - 1, hv_LeftColEnd);
-	GenRectangle1(&ho_RegionMid, 0, hv_MidColStart, hv_Height - 1, hv_MidColEnd);
-
 	GetRegionPoints(ho_RegionLeft, &hv_LeftRows, &hv_LeftColumns);
-	GetRegionPoints(ho_RegionMid, &hv_MidRows, &hv_MidColumns);
-
 	GetGrayval(ho_ImageLeft, hv_LeftRows, hv_LeftColumns, &hv_LeftGrayval);
-	GetGrayval(ho_ImageMid, hv_MidRows, hv_MidColumns, &hv_MidGrayval);
-
 	SetGrayval(ho_ImageConcat, hv_LeftRows, hv_LeftColumns - hv_LeftColStart, hv_LeftGrayval);
-	SetGrayval(ho_ImageConcat, hv_MidRows, hv_MidColumns + hv_adjustMidX, hv_MidGrayval);
 
+	if (g_cameraNum > 1) {
+		//ReadImage(&ho_ImageRight, "D:/Images/27_2.bmp");
+		ho_ImageMid = images[1];
+		string fileNameMid = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(g_id) + "_2.jpg";
+		HImage(ho_ImageMid).WriteImage("jpg", 0, fileNameMid.c_str());
+		GenRectangle1(&ho_RegionMid, 0, hv_MidColStart, hv_Height - 1, hv_MidColEnd);
+		GetRegionPoints(ho_RegionMid, &hv_MidRows, &hv_MidColumns);
+		GetGrayval(ho_ImageMid, hv_MidRows, hv_MidColumns, &hv_MidGrayval);
+		SetGrayval(ho_ImageConcat, hv_MidRows, hv_MidColumns + hv_adjustMidX, hv_MidGrayval);
+	}
+	//注意不是else if
 	if (g_cameraNum == 3) {
 		//ReadImage(&ho_ImageRight, "D:/Images/27_3.bmp");
 		ho_ImageRight = images[2];
-		string fileNameRight = "d:/grabs/trigger_concat_" + commonfunction_c::BaseFunctions::Int2Str(g_id) + "_3.jpg";
+		string fileNameRight = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(g_id) + "_3.jpg";
 		HImage(ho_ImageRight).WriteImage("jpg", 0, fileNameRight.c_str());
 		GenRectangle1(&ho_RegionRight, 0, hv_RightColStart, hv_Height - 1, hv_RightColEnd);
 		GetRegionPoints(ho_RegionRight, &hv_RightRows, &hv_RightColumns);
@@ -1032,4 +995,3 @@ string redisRPop(string key) {
 	return "";
 }
 
-#endif

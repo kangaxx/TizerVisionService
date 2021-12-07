@@ -3,6 +3,7 @@
 #include "../../../hds/FastDelegate.h"
 #include "../../../hds/Logger.h"
 #include "../../../hds/configHelper.h"
+#include "../../../hds/common.h"
 #include "HalconCpp.h"
 #include "HDevThread.h"
 #include <pylon/PylonIncludes.h>
@@ -17,10 +18,10 @@
 
 
 #ifdef PYLON_WIN_BUILD
-#   include <pylon/PylonGUI.h>
+#include <pylon/PylonGUI.h>
 
 // Include file to use pylon universal instant camera parameters.
-#	include <pylon/BaslerUniversalInstantCamera.h>
+#include <pylon/BaslerUniversalInstantCamera.h>
 #endif
 
 using namespace HalconCpp;

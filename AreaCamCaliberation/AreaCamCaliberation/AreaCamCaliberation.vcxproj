@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{f4fbdcf2-4fdb-4bfa-aae9-43556398b93a}</ProjectGuid>
-    <RootNamespace>EarRollingBaslerCamera</RootNamespace>
+    <ProjectGuid>{3d756701-64c0-46cc-a04c-07afb831117a}</ProjectGuid>
+    <RootNamespace>AreaCamCaliberation</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -119,9 +119,6 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp14</LanguageStandard>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -147,24 +144,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="EarRollingBaslerCamera.cpp" />
-    <ClCompile Include="Ear_Edge_Locate_Harris.cpp" />
-    <ClCompile Include="Modbus\crc16.cpp" />
-    <ClCompile Include="Modbus\LocalModbus.cpp" />
-    <ClCompile Include="Modbus\modbus.cpp" />
-    <ClCompile Include="SerialPort.cpp" />
+    <ClCompile Include="AreaCamCaliberation.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\hds\common.h" />
     <ClInclude Include="..\..\..\hds\commonfunction_c.h" />
-    <ClInclude Include="EarRollingBaslerCamera.h" />
-    <ClInclude Include="ModbusThread.h" />
-    <ClInclude Include="Modbus\Common.h" />
-    <ClInclude Include="Modbus\crc16.h" />
-    <ClInclude Include="Modbus\LocalModbus.h" />
-    <ClInclude Include="Modbus\modbus.h" />
-    <ClInclude Include="Modbus\ModbusMessages.h" />
-    <ClInclude Include="SerialPort.h" />
+    <ClInclude Include="..\..\..\hds\Logger.h" />
+    <ClInclude Include="AreaCamCaliberation.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

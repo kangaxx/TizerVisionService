@@ -4,9 +4,10 @@
 #include <redis++.h>
 #include <cstdio>
 #include <unordered_set>
-
+#include <stdio.h>
 #include <iostream>
 #include <Windows.h>
+#include <UserEnv.h>
 
 #include "../../../hds/common.h"
 #include "../../../hds/commonfunction_c.h"
@@ -15,9 +16,14 @@
 #include "../../../hds/halconUtils.h"
 #include "../../../hds/Logger.h"
 #include "../../../hds/configHelper.h"
+#include "../../../hds/JsonHelper.h"
+
+#include "SerialPort.h"
+
+
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
-#define PROGRAM_COMPLIRE_VERSION "camera worker, version 2111011630"
+#define PROGRAM_COMPLIRE_VERSION "Console program, version 2112080800"
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -25,25 +31,94 @@
 // Include file to use pylon universal instant camera parameters.
 #	include <pylon/BaslerUniversalInstantCamera.h>
 #endif
+#define WINDING_NG_RESULT_KEY "IsNg"
+#define WINDING_NG_RESULT_ISNG "0"
 using namespace fastdelegate;
 using namespace HalconCpp;
 using namespace sw::redis;
 class LibraryLoader;
  
 void delegateFunction(char*);
-typedef char** (*halconFunc)(int, char*[], HImage, char**);
+typedef void (*halconFunc)(int, char*[], const char*, char**);
 typedef HImage (*cameraWork)(int, char* []);
+typedef bool (*calibrationWork)(int, char* []);
 typedef void (*callHalconFunc)(char*);
 typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [], HBYTE[]));
 typedef void (*setHalconFunction)(callHalconFunc);
 
 using namespace commonfunction_c;
+static int index;
 
+//如果电芯不合格，需要触发485继电器来剔除，下面的功能就是触发485
+void switchTrigger485(int port)
+{
+	CSerialPort sp;
+	TCHAR szPort[MAX_PATH];
+	_stprintf_s(szPort, MAX_PATH, _T("COM%d"), port);
+	sp.Open(szPort, 9600UL);
+	if (sp.IsOpen()) {
+		std::cout << "sp is open" << std::endl;
+		unsigned char value[8];
+		value[0] = 0x01;
+		value[1] = 0x06;
+		value[2] = 0x00;
+		value[3] = 0x00;
+		value[4] = 0x00;
+		value[5] = 0x01;
+		value[6] = 0x48;
+		value[7] = 0x0A;
+		//out 1 开启
+		sp.Write((void*)(&value[0]), 8);
+
+		Sleep(300);
+		value[0] = 0x01;
+		value[1] = 0x06;
+		value[2] = 0x00;
+		value[3] = 0x01;
+		value[4] = 0x00;
+		value[5] = 0x01;
+		value[6] = 0x19;
+		value[7] = 0xCA;
+		//out 1 关闭
+		sp.Write((void*)(&value[0]), 8);
+	}
+	else
+		std::cout << "sp is close" << std::endl;
+	sp.Close();
+	return;
+}
+
+//循环读取redis列表看看前台有没有数据返回
+
+
+unsigned long readRedisProc(void* lpParameter) {
+	Logger l("d:");
+	l.Log("start read Redis proc");
+	Redis redis = Redis("tcp://127.0.0.1:6379");
+	StringView key = "to_gxx";
+	while (true) {
+		try {
+			auto value = redis.rpop("list");  
+			l.Log(value.value());
+			JsonHelper jh(value.value());
+			if (jh.search(WINDING_NG_RESULT_KEY).find(WINDING_NG_RESULT_ISNG))
+				switchTrigger485(1);
+		}
+		catch (char* err) {
+			l.Log(err);
+		}
+		catch (...) {
+			//do nothing
+		}
+		Sleep(2000);
+	}
+	return 0;
+}
 
 class LibraryLoader {
 public:
 	//读取算法动态链接库
-	void runHalconLib(int argc, char* in[], HImage image){
+	void runHalconLib(int argc, char* in[], string image){
 		int x = argc;
 		HINSTANCE hDllInst;
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
@@ -76,9 +151,14 @@ public:
 		char buffer[INT_HALCON_BURR_RESULT_SIZE] = { '\0' };
 		char** out = new char* ();
 		*out = &buffer[0];
-		
-		func(6, source, image, out);
-		std::cout << "get taichi result : " << **out << std::endl;
+		try {
+			func(6, source, image.c_str(), out);
+			lPush(REDIS_WRITE_KEY, string(*out));
+		}
+		catch (...) {
+
+		}
+		//std::cout << "get taichi result : " << **out << std::endl;
 		if (hDllInst > 0)
 			FreeLibrary(hDllInst);
 		return;
@@ -87,9 +167,13 @@ public:
 	//读取相机动态链接库
 
 	HImage runCameraLib() {
+		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&readRedisProc, NULL, 0, 0);
+
 		HINSTANCE hDllInst;
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
-		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str()));
+		Logger l("d:");
+		l.Log(ch.findValue("cameraLibrary", string("string")));
+		hDllInst = LoadLibrary(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str());
 		if (hDllInst == 0) {
 			throw "Load camera library failed!";
 		}
@@ -125,6 +209,25 @@ public:
 		return image;
 	}
 
+	void runCalibration() {
+		HINSTANCE hDllInst;
+		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
+		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("calibrationLibrary", string("string"))).c_str()));
+		if (hDllInst == 0) {
+			throw "Calibration library failed!";
+		}
+		calibrationWork calibrationWorkFunc = NULL;
+		calibrationWorkFunc = (calibrationWork)GetProcAddress(hDllInst, "calibrationWorker");
+		if (calibrationWorkFunc == 0) {
+			FreeLibrary(hDllInst);
+			throw "Load camera library function failed!";
+		}
+		char* in[5];
+		if (!calibrationWorkFunc(0, in))
+			cout << "calibration fail" << endl;
+		return;
+	}
+
 	void lPush(string k, string v) {
 		Redis redis = Redis("tcp://127.0.0.1:6379");
 		StringView key = k.c_str();
@@ -147,35 +250,13 @@ static LibraryLoader ll;
 
 int main()
 {
-
-	//创建共享内存
-	HANDLE hFile = CreateFile(L"Recv1.zip",
-		GENERIC_WRITE | GENERIC_READ,
-		FILE_SHARE_READ,
-		NULL,
-		CREATE_ALWAYS,
-		FILE_FLAG_SEQUENTIAL_SCAN,
-		NULL);
-	HANDLE hFileMapping = CreateFileMapping(hFile, NULL, PAGE_READWRITE,
-		0, 0x4000000, NULL);
-	// 释放文件内核对象
-	CloseHandle(hFile);
-	// 设定大小、偏移量等参数
-	__int64 qwFileSize = 0x4000000;
-	__int64 qwFileOffset = 0;
-	__int64 T = 600;
-	DWORD dwBytesInBlock = 1000;
-
-	// 将文件数据映射到进程的地址空间
-	PBYTE pbFile = (PBYTE)MapViewOfFile(hFileMapping,
-		FILE_MAP_ALL_ACCESS,
-		(DWORD)(qwFileOffset >> 32), (DWORD)(qwFileOffset & 0xFFFFFFFF), dwBytesInBlock);
-	//
-
+	Logger l("d:");
+	l.Log(PROGRAM_COMPLIRE_VERSION);
 	std::cout << "Hello World! Welcome to library loader, pls select library by num\n";
 	std::cout << "[0] exit program \n";
-	std::cout << "[1] halcon taichi! \n";
-	int index;
+	std::cout << "[1] winding test! \n";
+	std::cout << "[2] Image test! \n";
+	std::cout << "[3] calibration test! \n";
 	while (true) {
 		std::cin >> index;
 		std::cout << "selected index :" << index << std::endl;
@@ -184,8 +265,35 @@ int main()
 		
 		HImage image;
 		try {
-			image = ll.runCameraLib();
-			Pylon::PylonTerminate();
+			switch (index)
+			{
+			case 1:
+				image = ll.runCameraLib();
+				Pylon::PylonTerminate();
+				break;
+			case 2:
+				char* args[8];
+				char status[10];
+				strcpy_s(status, 10, BaseFunctions::Int2Str(CONCAT_IMAGE_SUCCESS).c_str());
+				args[0] = &status[0];
+				ll.runHalconLib(1, args, "");
+				break;
+			case 3:
+				ll.runCalibration();
+				break;
+			default:
+				break;
+			}
+
+		}
+		catch (HException& exception)
+		{
+			fprintf(stderr, "  Error #%u in %s: %s\n", exception.ErrorCode(),
+				exception.ProcName().TextA(),
+				exception.ErrorMessage().TextA());
+		}
+		catch (const char* err) {
+			fprintf(stderr, "  Error #%s\n", err);
 		}
 		catch (...) {
 			//to do list
@@ -197,17 +305,9 @@ int main()
 		HImage saveImage = ho_Image;
 		saveImage.WriteImage("jpg", 0, "d:/grabs/libTest.jpg");
 		 ↑↑↑↑↑↑以上只是测试相机采集 ， 可以屏蔽 ↑↑↑↑↑↑*/
-		//调用算法
-		try {
-			ll.runHalconLib(index, NULL, image);
-		}
-		catch (...) {
 
-		}
 	}
 
-	// 从进程的地址空间撤消文件数据映像
-	UnmapViewOfFile(pbFile);
 	return 0;
 }
 
@@ -215,6 +315,21 @@ int main()
 
 void delegateFunction(char* msg) {
 	ll.lPush("some key", msg);
+	JsonHelper jh;
+	jh.initial(string(msg));
+	string key = "image";
+	//cout << "json initial by string , string : \"" << msg << "\" , key is : \"" << key << "\", value is :\"" << jh.search(key) << "\"" << endl;
+	//调用算法
+	try {
+		char* args[8];
+		char status[10];
+		strcpy_s(status, 10, jh.search("status").c_str());
+		args[0] = &status[0];
+		ll.runHalconLib(1, args, jh.search(key));
+	}
+	catch (...) {
+
+	}
 	return;
 }
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单

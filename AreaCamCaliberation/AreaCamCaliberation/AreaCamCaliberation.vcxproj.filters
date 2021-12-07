@@ -15,22 +15,22 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="earRollingHalcon.h">
+    <ClCompile Include="AreaCamCaliberation.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AreaCamCaliberation.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="easywsclient.hpp">
+    <ClInclude Include="..\..\..\hds\Logger.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\hds\common.h">
       <Filter>头文件</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="earRollingHalcon.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="easywsclient.cpp">
+    <ClInclude Include="..\..\..\hds\commonfunction_c.h">
       <Filter>头文件</Filter>
-    </ClCompile>
+    </ClInclude>
   </ItemGroup>
 </Project>
