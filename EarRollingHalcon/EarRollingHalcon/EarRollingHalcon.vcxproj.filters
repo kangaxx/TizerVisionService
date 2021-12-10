@@ -24,6 +24,9 @@
     <ClInclude Include="..\..\..\hds\common.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="CalibrationDataHelper.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="earRollingHalcon.cpp">
@@ -31,6 +34,9 @@
     </ClCompile>
     <ClCompile Include="easywsclient.cpp">
       <Filter>头文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CalibrationDataHelper.cpp">
+      <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

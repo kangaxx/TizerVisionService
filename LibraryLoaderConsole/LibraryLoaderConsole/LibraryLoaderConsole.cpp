@@ -23,7 +23,7 @@
 
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
-#define PROGRAM_COMPLIRE_VERSION "Console program, version 2112080800"
+#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.1210.13"
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -95,10 +95,10 @@ unsigned long readRedisProc(void* lpParameter) {
 	Logger l("d:");
 	l.Log("start read Redis proc");
 	Redis redis = Redis("tcp://127.0.0.1:6379");
-	StringView key = "to_gxx";
+	StringView key = REDIS_READ_KEY;
 	while (true) {
 		try {
-			auto value = redis.rpop("list");  
+			auto value = redis.rpop(key);  
 			l.Log(value.value());
 			JsonHelper jh(value.value());
 			if (jh.search(WINDING_NG_RESULT_KEY).find(WINDING_NG_RESULT_ISNG))
@@ -139,7 +139,7 @@ public:
 		int width = 1920; //实际参数需要参看相机情况，读取本地文件时设置为0
 		int height = 1080; // 同上
 		int polesWidth = 10;
-		source[0] = (char*)(&burr_limit);
+		source[0] = in[0];
 		source[1] = (char*)(&grayMin);
 		source[2] = (char*)(&grayMax);
 		source[3] = (char*)(&width);
@@ -152,7 +152,9 @@ public:
 		char** out = new char* ();
 		*out = &buffer[0];
 		try {
+			Logger l("d:");
 			func(6, source, image.c_str(), out);
+			l.Log(string(*out));
 			lPush(REDIS_WRITE_KEY, string(*out));
 		}
 		catch (...) {
@@ -168,14 +170,13 @@ public:
 
 	HImage runCameraLib() {
 		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&readRedisProc, NULL, 0, 0);
-
 		HINSTANCE hDllInst;
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
 		Logger l("d:");
 		l.Log(ch.findValue("cameraLibrary", string("string")));
 		hDllInst = LoadLibrary(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str());
 		if (hDllInst == 0) {
-			throw "Load camera library failed!";
+			throw "Load camera library failed!" ;
 		}
 		cameraWork cameraWorkFunc = NULL;
 		cameraWorkFunc = (cameraWork)GetProcAddress(hDllInst, "cameraWorker");
@@ -209,6 +210,39 @@ public:
 		return image;
 	}
 
+
+	HImage runCalibrationCameraLib() {
+		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&readRedisProc, NULL, 0, 0);
+		HINSTANCE hDllInst;
+		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
+		Logger l("d:");
+		hDllInst = LoadLibrary(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str());
+		if (hDllInst == 0) {
+			throw "Load camera library failed!";
+		}
+		cameraWork cameraWorkFunc = NULL;
+		cameraWorkFunc = (cameraWork)GetProcAddress(hDllInst, "cameraWorker");
+		if (cameraWorkFunc == 0) {
+			FreeLibrary(hDllInst);
+			throw "Load camera library function failed!";
+		}
+
+		string cameraLeftName = ch.findValue("cameraLeftName", string("string"));
+		string cameraMidName = ch.findValue("cameraMidName", string("string"));
+		string cameraRightName = ch.findValue("cameraRightName", string("string"));
+		cout << "cameraLeftName: " << cameraLeftName << endl;
+		char* in[5];
+		char leftCamera[50], midCamera[50], rightCamera[50];
+		strcpy_s(leftCamera, cameraLeftName.c_str());
+		strcpy_s(midCamera, cameraMidName.c_str());
+		strcpy_s(rightCamera, cameraRightName.c_str());
+		in[0] = &leftCamera[0];
+		in[1] = &midCamera[0];
+		in[2] = &rightCamera[0];
+		HImage image = cameraWorkFunc(0, in);
+		return image;
+	}
+
 	void runCalibration() {
 		HINSTANCE hDllInst;
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
@@ -223,8 +257,11 @@ public:
 			throw "Load camera library function failed!";
 		}
 		char* in[5];
+		Logger l;
 		if (!calibrationWorkFunc(0, in))
-			cout << "calibration fail" << endl;
+			l.Log("Calibration failed!");
+		else
+			l.Log("Calibration successed!");
 		return;
 	}
 
@@ -232,7 +269,6 @@ public:
 		Redis redis = Redis("tcp://127.0.0.1:6379");
 		StringView key = k.c_str();
 		StringView value = v.c_str();
-
 		redis.lpush(key, value);
 		return;
 	}
@@ -252,11 +288,13 @@ int main()
 {
 	Logger l("d:");
 	l.Log(PROGRAM_COMPLIRE_VERSION);
+	l.Log(BaseFunctions::ws2s(BaseFunctions::GetWorkPath()));
 	std::cout << "Hello World! Welcome to library loader, pls select library by num\n";
 	std::cout << "[0] exit program \n";
 	std::cout << "[1] winding test! \n";
 	std::cout << "[2] Image test! \n";
-	std::cout << "[3] calibration test! \n";
+	std::cout << "[3] create calibration file! \n";
+	std::cout << "[4] grab calibration image! \n";
 	while (true) {
 		std::cin >> index;
 		std::cout << "selected index :" << index << std::endl;
@@ -280,6 +318,9 @@ int main()
 				break;
 			case 3:
 				ll.runCalibration();
+				break;
+			case 4:
+				ll.runCalibrationCameraLib();
 				break;
 			default:
 				break;
@@ -314,7 +355,7 @@ int main()
 
 
 void delegateFunction(char* msg) {
-	ll.lPush("some key", msg);
+	ll.lPush("to_test", msg);
 	JsonHelper jh;
 	jh.initial(string(msg));
 	string key = "image";

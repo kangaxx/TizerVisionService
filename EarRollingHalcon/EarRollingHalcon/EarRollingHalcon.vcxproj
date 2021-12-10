@@ -147,10 +147,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\hds\common.h" />
+    <ClInclude Include="CalibrationDataHelper.h" />
     <ClInclude Include="earRollingHalcon.h" />
     <ClInclude Include="easywsclient.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CalibrationDataHelper.cpp" />
     <ClCompile Include="earRollingHalcon.cpp" />
     <ClCompile Include="easywsclient.cpp" />
   </ItemGroup>

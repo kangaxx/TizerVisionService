@@ -2,17 +2,22 @@
 //#include "easywsclient.cpp" // <-- include only if you don't want compile separately
 #include <assert.h>
 #include <stdio.h>
+#include <Windows.h>
+#include "../../../hds/Logger.h"
 #include "earRollingHalcon.h"
+
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "halcon processer, version 2110190935"
+#define LIBRARY_COMPLIRE_VERSION "halcon library, version 1.1210.10"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 
 #define DEBUG_MODE //调试模式，使用固定文件调试算法
-
-
+using namespace commonfunction_c;
+using halconfunction::CalibrationDataHelper;
 char** halconAction(int argc, char* in[], const char* name, char** out)
 {
-	HImage ho_Image;
+	Logger l("d:");
+	l.Log(LIBRARY_COMPLIRE_VERSION);
+	g_rolling_position_data = new RollingPostionData();
 	char message[2048];
 	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":%d,\"time\":\"%s\"}";
 	if (argc > 0) {
@@ -22,20 +27,12 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 			return out;
 		}
 	}
-#ifndef DEBUG_MODE
-	
-	ReadImage(&ho_Image, name);
-#else
-	ReadImage(&ho_Image, "d:/images/trigger_concat_2.jpg");
-#endif
+	string imageStr;
 
-
-	string imageStr = "0000";
-	float width = getRollingWidth(ho_Image);
+	imageStr = name;
 	float ll, lr, rl, rr;
 
-
-	if (isRollingOk(ho_Image)) {
+	if (g_rolling_position_data->is_rolling_ok()) {
 		ll = 21 + ((float)(rand() % 15)) / 10.0;
 		lr = 46 + ((float)(rand() % 15)) / 10.0;
 		rl = 94 + ((float)(rand() % 15)) / 10.0;
@@ -47,89 +44,92 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 		rl = 94.55 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
 		rr = 121.27 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
 	}
-	sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, 1, "2021-01-01 12:00:01");
+	sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), g_rolling_position_data->get_battery_width(), ll, lr, rl, rr, BaseFunctions::Chars2Int(in[0], 10), "2021-01-01 12:00:01");
 	strncpy_s(*out, 2048, message, 2048);
+	delete g_rolling_position_data;
 	return out;
 }
 
-
-bool isRollingOk(HImage image)
+float RollingPostionData::get_distance_left(float x, float y)
 {
-	// Local iconic variables
+
+	int line_num_distance_min = -1; //最近的标线
+	int line_num_distance_min_vice = -1; //次近的标线
+	float min_distance = MAX_BATTERY_WIDTH;
+	float min_distance_vice = MAX_BATTERY_WIDTH;
+	//找出点坐标离哪一根标线最近，以及次接近
+	int i = 0;
+	while ((4 * i) < calibration_lines_points_.size() - 3) {
+		HTuple hv_distance;
+		float top_x = calibration_lines_points_[4 * i];
+		float top_y = calibration_lines_points_[4 * i + 1];
+		float bottom_x = calibration_lines_points_[4 * i + 2];
+		float bottom_y = calibration_lines_points_[4 * i + 3];
+		DistancePl(y, x, top_y, top_x, bottom_y, bottom_x, &hv_distance);
+		float float_distance = hv_distance;
+		if (float_distance < min_distance) {
+			min_distance_vice = min_distance;
+			line_num_distance_min_vice = line_num_distance_min;
+			min_distance = float_distance;
+			line_num_distance_min = i;
+		}
+		else if (float_distance < min_distance_vice) {
+			min_distance_vice = float_distance;
+			line_num_distance_min_vice = i;
+		}
+		i++;
+	} //while
+	assert(abs(line_num_distance_min - line_num_distance_min_vice) == 1);
+	if (line_num_distance_min > line_num_distance_min_vice)
+		return float(line_num_distance_min) - min_distance / (min_distance + min_distance_vice);
+	else
+		return float(line_num_distance_min_vice) - min_distance_vice / (min_distance + min_distance_vice);
+}
+
+float RollingPostionData::get_distance_right(float x, float y)
+{
+	int total_line_num = calibration_lines_points_.size() / 4;
+	return get_distance_left(x, y) + calibration_line_num_ - float(total_line_num);
+}
+
+void RollingPostionData::load_image()
+{
+#ifndef DEBUG_MODE
+	string image_name = string(name) + ".jpg";
+	HalconCpp::ReadImage(&ho_image_, image_name.c_str());
+#else
+	ReadImage(&ho_image_, "d:/images/trigger_concat_2.jpg");
+#endif
+}
+
+float RollingPostionData::measure_battery_width(HImage& image)
+{
 	try {
-		HObject  ho_Image, ho_RoiEar, ho_CrossSojka;
-
-		// Local control variables
-		HTuple  hv_min_ear_row, hv_max_ear_row, hv_min_ear_col;
-		HTuple  hv_max_ear_col, hv_Index, hv_Width, hv_Height, hv_WindowHandle;
-		HTuple  hv_Dark, hv_ackground, hv_Light, hv_Angle, hv_Size;
-		HTuple  hv_RowSojka, hv_ColSojka, hv_crossNum;
-
-		//debug 为1时会打印过程图像
-		hv_min_ear_row = 400;
-		hv_max_ear_row = 650;
-		hv_min_ear_col = 550;
-		hv_max_ear_col = 750;
+		HTuple hv_pixel2um = 1;
+		HTuple hv_min_edge_row = 600;
+		HTuple hv_max_edge_row = 1000;
+		HTuple hv_min_edge_col_left = 50;
+		HTuple hv_max_edge_col_left = 150;
+		HTuple hv_min_edge_col_right = 3700;
+		HTuple hv_max_edge_col_right = 3900;
 
 
-		ho_Image = image;
-
-		GetImageSize(ho_Image, &hv_Width, &hv_Height);
-
-		//显示窗口初始化
-		if (HDevWindowStack::IsOpen())
-			CloseWindow(HDevWindowStack::Pop());
-		if (HDevWindowStack::IsOpen())
-			DispObj(ho_Image, HDevWindowStack::GetActive());
-		GenRectangle1(&ho_RoiEar, hv_min_ear_row, hv_min_ear_col, hv_max_ear_row, hv_max_ear_col);
-		ReduceDomain(ho_Image, ho_RoiEar, &ho_Image);
-
-		hv_Dark = 100;
-		hv_ackground = 175;
-		hv_Light = 250;
-		hv_Angle = HTuple(45).TupleRad();
-		hv_Size = 3;
-
-		//
-		//Sojka interest points detector
-		PointsSojka(ho_Image, 11, 2.5, 0.75, 2, 90, 1.5, "true", &hv_RowSojka, &hv_ColSojka);
-		GenCrossContourXld(&ho_CrossSojka, hv_RowSojka, hv_ColSojka, hv_Size, hv_Angle);
-		if (HDevWindowStack::IsOpen())
-			DispObj(ho_Image, HDevWindowStack::GetActive());
-		if (HDevWindowStack::IsOpen())
-			DispObj(ho_CrossSojka, HDevWindowStack::GetActive());
-
-		CountObj(ho_CrossSojka, &hv_crossNum);
-		if (hv_crossNum > MAX_CROSS_ERROR)
-			return false;
-		else
-			return true;
+		//方向， 0左侧， 1,右侧
+		HTuple hv_burrs_direction = 1;
+		float left = getRollingEdgeVertical(image, WLD_LEFT, hv_min_edge_col_left, hv_max_edge_col_left, hv_min_edge_row, hv_max_edge_row);
+		float right = getRollingEdgeVertical(image, WLD_RIGHT, hv_min_edge_col_right, hv_max_edge_col_right, hv_min_edge_row, hv_max_edge_row);
+		return float(right - left);
 	}
 	catch (...) {
-		return false;
+		Logger l("d:");
+		l.Log("getRollingWidth error");
+		return 0.0;
 	}
 }
 
-float getRollingWidth(HImage& image)
+float RollingPostionData::getRollingEdgeVertical(HImage image, eWidthLocateDirect direct, int xMin, int xMax, int yMin, int yMax)
 {
-	HTuple hv_pixel2um = 1;
-	HTuple hv_min_edge_row = 600;
-	HTuple hv_max_edge_row = 1000;
-	HTuple hv_min_edge_col_left = 50;
-	HTuple hv_max_edge_col_left = 150;
-	HTuple hv_min_edge_col_right = 3700;
-	HTuple hv_max_edge_col_right = 3900;
 
-
-	//方向， 0左侧， 1,右侧
-	HTuple hv_burrs_direction = 1;
-	int left = getRollingEdgeVertical(image, WLD_LEFT, hv_min_edge_col_left, hv_max_edge_col_left, hv_min_edge_row, hv_max_edge_row);
-	int right = getRollingEdgeVertical(image, WLD_RIGHT, hv_min_edge_col_right, hv_max_edge_col_right, hv_min_edge_row, hv_max_edge_row);
-	return float(right - left);
-}
-
-int getRollingEdgeVertical(HImage ho_Image, eWidthLocateDirect direct, int xMin, int xMax, int yMin, int yMax)
-{
 	// Local iconic variables
 	HObject  ho_RoiEdge, ho_RoiEar, ho_ImageReduce;
 	HObject  ho_ImageEmphasize, ho_Mean, ho_ImageOpening, ho_ImageClosing;
@@ -151,7 +151,7 @@ int getRollingEdgeVertical(HImage ho_Image, eWidthLocateDirect direct, int xMin,
 	HTuple hv_threshold_gray_max = 255;
 	//**测量变量初始化**
 
-	GetImageSize(ho_Image, &hv_ImageWidth, &hv_ImageHeight);
+	GetImageSize(image, &hv_ImageWidth, &hv_ImageHeight);
 	//第一个测量对象轮廓线中心点行坐标
 	hv_MeasureStartRow = 0;
 	//第一个测量对象轮廓线中心点列坐标
@@ -167,7 +167,7 @@ int getRollingEdgeVertical(HImage ho_Image, eWidthLocateDirect direct, int xMin,
 
 	// stop(...); only in hdevelop
 	GenRectangle1(&ho_RoiEdge, yMin, xMin, yMax, xMax);
-	ReduceDomain(ho_Image, ho_RoiEdge, &ho_ImageReduce);
+	ReduceDomain(image, ho_RoiEdge, &ho_ImageReduce);
 	Emphasize(ho_ImageReduce, &ho_ImageEmphasize, hv_ImageWidth, hv_ImageHeight, 1.5);
 	MeanImage(ho_ImageEmphasize, &ho_Mean, 25, 25);
 	//平滑处理图像
@@ -181,11 +181,6 @@ int getRollingEdgeVertical(HImage ho_Image, eWidthLocateDirect direct, int xMin,
 	Connection(ho_Regions, &ho_Connects);
 	SelectShape(ho_Connects, &ho_SelectedRegion, "area", "and", 600, 99999);
 	RegionToBin(ho_SelectedRegion, &ho_ImageBin, 15, 220, hv_ImageWidth, hv_ImageHeight);
-
-	if (HDevWindowStack::IsOpen())
-		SetLineWidth(HDevWindowStack::GetActive(), 2);
-	if (HDevWindowStack::IsOpen())
-		SetDraw(HDevWindowStack::GetActive(), "margin");
 
 
 
@@ -250,16 +245,68 @@ int getRollingEdgeVertical(HImage ho_Image, eWidthLocateDirect direct, int xMin,
 		switch (direct)
 		{
 		case WLD_LEFT:
-			result = hv_MinColumn[0];
+			result = get_distance_left(hv_MinColumn[0], hv_MinRow[0]);
 			break;
 
 		case WLD_RIGHT:
-			result = hv_MaxColumn[0];
+			result = get_distance_right(hv_MaxColumn[0], hv_MaxRow[0]);
 			break;
 		}
 	}
 	catch (...) {
 		//
 	}
-	return (int)result;
+	return result;
+}
+
+bool RollingPostionData::check_battery_ear(HImage& image)
+{
+	// Local iconic variables
+	try {
+		HObject  ho_Image, ho_RoiEar, ho_CrossSojka;
+
+		// Local control variables
+		HTuple  hv_min_ear_row, hv_max_ear_row, hv_min_ear_col;
+		HTuple  hv_max_ear_col, hv_Index, hv_Width, hv_Height, hv_WindowHandle;
+		HTuple  hv_Dark, hv_ackground, hv_Light, hv_Angle, hv_Size;
+		HTuple  hv_RowSojka, hv_ColSojka, hv_crossNum;
+
+		//debug 为1时会打印过程图像
+		hv_min_ear_row = 400;
+		hv_max_ear_row = 650;
+		hv_min_ear_col = 550;
+		hv_max_ear_col = 750;
+		ho_Image = image;
+		GetImageSize(ho_Image, &hv_Width, &hv_Height);
+
+		GenRectangle1(&ho_RoiEar, hv_min_ear_row, hv_min_ear_col, hv_max_ear_row, hv_max_ear_col);
+		ReduceDomain(ho_Image, ho_RoiEar, &ho_Image);
+
+		hv_Dark = 100;
+		hv_ackground = 175;
+		hv_Light = 250;
+		hv_Angle = HTuple(45).TupleRad();
+		hv_Size = 3;
+
+		//
+		//Sojka interest points detector
+		PointsSojka(ho_Image, 11, 2.5, 0.75, 2, 90, 1.5, "true", &hv_RowSojka, &hv_ColSojka);
+		GenCrossContourXld(&ho_CrossSojka, hv_RowSojka, hv_ColSojka, hv_Size, hv_Angle);
+
+		CountObj(ho_CrossSojka, &hv_crossNum);
+		if (hv_crossNum > MAX_CROSS_ERROR)
+			return false;
+		else
+			return true;
+	}
+	catch (...) {
+		return false;
+	}
+}
+
+void RollingPostionData::initial_calibration_lines()
+{
+	CalibrationDataHelper calibration_data_reader(WINDING_CALIBRATION_POINTS_FILENAME, WINDING_CALIBRATION_INFO_FILENAME, WINDING_CALIBRATION_PATH, 4);
+	calibration_lines_points_ = calibration_data_reader.getCalibrationValues();
+	calibration_line_num_ = calibration_data_reader.get_calibration_info().line_num_;
 }

@@ -10,7 +10,7 @@
 #include "ModbusThread.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera worker, version 2112071100"
+#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.1210.10"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 
 #define SAVE_IMAGE_PREFIX "d:/grabs/trigger_concat_"
@@ -123,6 +123,9 @@ HImage cameraWorker(int argc, char* in[])
 		g_rl = 94.55 + ((float)(rand() % 5)) / 100.0;
 		g_rr = 121.27 + ((float)(rand() % 5)) / 100.0;
 		l.Log(LIBRARY_COMPLIRE_VERSION);
+		//string grabed_image_path = BaseFunctions::combineFilePath(BaseFunctions::ws2s(BaseFunctions::GetWorkPath()), IMAGE_GRABED_FOLDER); //暂时先不要挪到工作目录内，后续版本改进
+		BaseFunctions::createDirectoryW(BaseFunctions::s2ws(string(IMAGE_GRABED_PATH)));
+		assert(BaseFunctions::isFolderExist(IMAGE_GRABED_PATH));
 
 		//创建跨模块内存
 		// Before using any pylon methods, the pylon runtime must be initialized.
@@ -217,20 +220,24 @@ HImage cameraWorker(int argc, char* in[])
 			int concatStatus = g_concatImageStatus;
 			g_concatImageStatus = CONCAT_IMAGE_NONE;
 			ReleaseMutex(hMutexHalconAnalyse);
-			std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"status\":%d,\"time\":\"%s\"}";
-
+			std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":%d,\"time\":\"%s\"}";
 			char message[2048];
-
+			float width = 142.0 + ((float)(rand() % 30)) / 10.0;
+			float ll = 16 + ((float)(rand() % 17)) / 10.0;
+			float lr = 49 + ((float)(rand() % 17)) / 10.0;
+			float rl = 76 + ((float)(rand() % 17)) / 10.0;
+			float rr = 125 + ((float)(rand() % 17)) / 10.0;
 			string imageStr = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(g_id);
-			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), concatStatus, "2021-01-01 12:00:01");
+			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, concatStatus, "2021-01-01 12:00:01");
 			strcpy_s(g_message, message);
-
 			if (concatStatus == CONCAT_IMAGE_FAIL) {
-				g_halconFunction(g_message);
+				if (g_halconFunction != nullptr)
+					g_halconFunction(g_message);
 				switchTrigger485(1); //debug gxx ,need to remove to main program
 			}
 			else if (concatStatus == CONCAT_IMAGE_SUCCESS) {
-				g_halconFunction(g_message);
+				if (g_halconFunction != nullptr)
+					g_halconFunction(g_message);
 			}
 			//照相抓图失败，basler相机报错
 			else {
@@ -242,7 +249,6 @@ HImage cameraWorker(int argc, char* in[])
 			{
 				char result;
 				// Send the message
-				l.Log(message);
 				// This buffer will hold the incoming message
 				beast::flat_buffer buffer;
 				// Read a message into our buffer
@@ -562,7 +568,7 @@ unsigned long ImageConcatProc(void* lpParameter)
 		//else {
 			//ReleaseMutex(hMutex);
 		//}
-		int doImageConcat = GRAB_STATUS_NONE;
+		int doImageConcat = GRAB_STATUS_SUCCESSED;
 		for (int i = 0; i < g_cameraNum; ++i) {
 			if (g_grabResults[i] == GRAB_STATUS_FAILED) {
 				WaitForSingleObject(hMutex, INFINITE);
@@ -578,15 +584,15 @@ unsigned long ImageConcatProc(void* lpParameter)
 			}
 		}
 		HImage image;
-		string fileName = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(g_id) + ".jpg";
+		string fileName;
 		switch (doImageConcat)
 		{
 		case GRAB_STATUS_SUCCESSED:
-			WaitForSingleObject(hMutex, INFINITE);
-			g_id++;
-			ReleaseMutex(hMutex);
+
 			try {
+				fileName = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(++g_id) + ".jpg";
 				image = imageConcat(g_id);
+
 			}
 			catch (...) {
 				g_concatImageStatus = CONCAT_IMAGE_FAIL;
@@ -601,18 +607,19 @@ unsigned long ImageConcatProc(void* lpParameter)
 				continue;
 			}
 			g_concatImage = image; //by gxx ,后续需要优化，和前一句合并，，完了将下面的isRollingOK等算法挪到算法library里去
-			g_concatImageStatus = CONCAT_IMAGE_SUCCESS;
 			g_concatImage.WriteImage("jpg", 0, fileName.c_str());
 			WaitForSingleObject(hMutex, INFINITE);
+			g_concatImageStatus = CONCAT_IMAGE_SUCCESS;
 			for (int i = 0; i < g_cameraNum; ++i) {
 				//现在应该只有successed状态，如果不是这个状态说明其他线程修改了，不雅
 				if (g_grabResults[i] == GRAB_STATUS_SUCCESSED)
 					g_grabResults[i] = GRAB_STATUS_NONE;
 			}
+
 			ReleaseMutex(hMutex);
 			break;
 		case GRAB_STATUS_NONE:
-			g_concatImageStatus = CONCAT_IMAGE_NONE;
+			//不能在这里改变为None，只有处理完成才能转变为NONE
 			break;
 		case GRAB_STATUS_FAILED:
 			WaitForSingleObject(hMutex, INFINITE);
@@ -722,7 +729,7 @@ HImage imageConcat(int id)
 	hv_MidColStart = 100;
 	hv_MidColEnd = 1800;
 	hv_RightColStart = 180;
-	hv_RightColEnd = 1300;
+	hv_RightColEnd = 1880;
 	hv_adjustMidX = (hv_LeftColEnd - hv_LeftColStart) - hv_MidColStart;
 	hv_adjustRightX = (hv_adjustMidX + hv_MidColEnd) - hv_RightColStart;
 	ho_ImageLeft = images[0];

@@ -1,10 +1,13 @@
 #include "AreaCamCaliberation.h"
 #include "../../../hds/commonfunction_c.h"
+#include "../../../hds/common.h"
 #include "../../../hds/Logger.h"
 using namespace commonfunction_c;
-
+#define COMPILE_LIBRARY_VERSION "calibration library ,version 1.1210.10"
 bool calibrationWorker(int argc, char* in[])
 {
+	Logger l;
+	l.Log(COMPILE_LIBRARY_VERSION);
 	HObject ho_Image;
 	HImage Image, ImageReduced;
 	HTuple Width, Height;
@@ -16,7 +19,7 @@ bool calibrationWorker(int argc, char* in[])
 	HTuple RowXld, ColXld, RowXldMin, RowXldMax, ColLeftTop, ColLeftBottom, ColRightTop, ColRightBottom;
 #ifdef DEBUG_MODE
 	try {
-		ReadImage(&ho_Image, "d:/grabs/trigger_concat_1.jpg");
+		ReadImage(&ho_Image, "d:/grabs/trigger_concat_0.jpg");
 		Image = ho_Image;
 	}
 	catch (HException& exception)
@@ -30,6 +33,7 @@ bool calibrationWorker(int argc, char* in[])
 	Gray_Max = 50;
 	GetImageSize(Image, &Width, &Height);
 	Threshold(Image, &Region, Gray_Min, Gray_Max);
+	Connection(Region, &Region);
 	SmallestRectangle1(Region, &Row1, &Column1, &Row2, &Column2);
 	TupleMax(Row1, &RowTop);
 	TupleMin(Row2, &RowBottom);
@@ -39,7 +43,8 @@ bool calibrationWorker(int argc, char* in[])
 	Threshold(ImageReduced, &RegionReduced, Gray_Min, Gray_Max);
 	Connection(RegionReduced, &RegionReduced);
 	CountObj(RegionReduced, &Number);
-
+	Logger calibration_info_log(WINDING_CALIBRATION_PATH);
+	calibration_info_log.ClearLog(WINDING_CALIBRATION_INFO_FILENAME, BaseFunctions::Int2Str(CALIBRATION_LINE_BAR_COUNT));
 	SmallestRectangle1(RegionReduced, &RowReduced1, &ColReduced1,
 		&RowReduced2, &ColReduced2);
 	TupleSortIndex(ColReduced1, &Indices);
@@ -90,10 +95,22 @@ bool calibrationWorker(int argc, char* in[])
 				}
 			}
 		}
-		Logger l("d:/calibration");
-		float xldMin = RowXldMin;
+		Logger calibration_log(WINDING_CALIBRATION_PATH);
+		float top_y = RowXldMin;
+		float bottom_y = RowXldMax;
+		float left_top_x = ColLeftTop;
+		float left_bottom_x = ColLeftBottom;
+		float right_top_x = ColRightTop;
+		float right_bottom_x = ColRightBottom;
 		//char out[9];
-		l.ClearLog(BaseFunctions::f2str(xldMin));
+		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(left_top_x));
+		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(top_y));
+		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(left_bottom_x));
+		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(bottom_y));
+		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(right_top_x));
+		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(top_y));
+		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(right_bottom_x));
+		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(bottom_y));
 	}
 
 	return true;
