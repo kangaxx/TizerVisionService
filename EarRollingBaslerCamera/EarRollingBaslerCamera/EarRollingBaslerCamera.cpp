@@ -529,7 +529,7 @@ unsigned long grabProc(void* lpParameter)
 						//result.WriteImage("jpg", 0, fileName.c_str());
 
 						//x++;
-					}
+					} 
 					else {
 						l.Log("cam:" + BaseFunctions::Int2Str(i) + " , grab failed");
 						g_grabResults[i] = GRAB_STATUS_FAILED;

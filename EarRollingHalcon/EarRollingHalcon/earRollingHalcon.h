@@ -22,18 +22,18 @@ enum eWidthLocateDirect
 }widthLocateDirect;
 
 
-
-bool isRollingOk(HImage image); //判断电池是否合格，true为合格 false为不合格
-
-
-
 class RollingPostionData {
 public:
 	RollingPostionData() {
+		log_ = new Logger();
 		initial_calibration_lines();
 		load_image();
 		set_battery_width(measure_battery_width(ho_image_));
 		update_battery_status(check_battery_ear(ho_image_));
+	}
+
+	~RollingPostionData() {
+		delete log_;
 	}
 	int get_calibration_line_num() { return calibration_line_num_; }
 	void set_calibration_line_num(int value) { calibration_line_num_ = value; }
@@ -44,9 +44,12 @@ public:
 private:
 	int calibration_line_num_;
 	vector<float> calibration_lines_points_;
-	float battery_width_; //电芯宽度
 	HImage ho_image_;
+	float battery_width_; //电芯宽度
 	bool is_rolling_ok_;
+	Logger* log_;
+	float left_edge_x_ = 0.0;
+	float right_edge_x_ = 0.0;
 	void initial_calibration_lines();
 	//从左侧开始某个点在标定区域内的横向坐标（左侧相机用)
 	float get_distance_left(float x, float y);
@@ -58,6 +61,6 @@ private:
 	float getRollingEdgeVertical(HImage image, eWidthLocateDirect direct, int xMin, int xMax, int yMin, int yMax); //横向极值点
 	bool check_battery_ear(HImage& image); //极耳位置判定，没问题返回true，否则返回false
 	void update_battery_status(bool value) { is_rolling_ok_ = (is_rolling_ok_ && value); }
-	
+	void getRollingROI(int min_bar_num, int max_bar_num, float& min_x, float& max_x, float& min_y, float& max_y);
 };
 RollingPostionData* g_rolling_position_data;

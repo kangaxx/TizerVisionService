@@ -49,9 +49,8 @@ bool calibrationWorker(int argc, char* in[])
 		&RowReduced2, &ColReduced2);
 	TupleSortIndex(ColReduced1, &Indices);
 	ColReduced1 = ColReduced1.TupleSelect(Indices);
-	for (int i = 0; i < Number - 1; ++i)
+	for (int i = 0; i < Number; ++i)
 	{
-
 		SelectShape(RegionReduced, &RegionBar, "column1", "and", HTuple(ColReduced1[i]),
 			HTuple(ColReduced1[i]));
 		GenContourRegionXld(RegionBar, &Contours, "border");
@@ -68,9 +67,7 @@ bool calibrationWorker(int argc, char* in[])
 		ColRightTop = 0;
 		ColRightBottom = 0;
 
-
-
-		for (int j = 0; j < LengthRow - 1; ++j)
+		for (int j = 0; j < LengthRow; ++j)
 		{
 			if (0 != (int(HTuple(RowXld[j]) == RowXldMin)))
 			{

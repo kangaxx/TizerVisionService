@@ -7,12 +7,13 @@
 #include "earRollingHalcon.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "halcon library, version 1.1210.10"
+#define LIBRARY_COMPLIRE_VERSION "halcon library, version 1.1213.10"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 
 #define DEBUG_MODE //调试模式，使用固定文件调试算法
 using namespace commonfunction_c;
 using halconfunction::CalibrationDataHelper;
+
 char** halconAction(int argc, char* in[], const char* name, char** out)
 {
 	Logger l("d:");
@@ -105,20 +106,12 @@ void RollingPostionData::load_image()
 float RollingPostionData::measure_battery_width(HImage& image)
 {
 	try {
-		HTuple hv_pixel2um = 1;
-		HTuple hv_min_edge_row = 600;
-		HTuple hv_max_edge_row = 1000;
-		HTuple hv_min_edge_col_left = 50;
-		HTuple hv_max_edge_col_left = 150;
-		HTuple hv_min_edge_col_right = 3700;
-		HTuple hv_max_edge_col_right = 3900;
-
-
-		//方向， 0左侧， 1,右侧
-		HTuple hv_burrs_direction = 1;
-		float left = getRollingEdgeVertical(image, WLD_LEFT, hv_min_edge_col_left, hv_max_edge_col_left, hv_min_edge_row, hv_max_edge_row);
-		float right = getRollingEdgeVertical(image, WLD_RIGHT, hv_min_edge_col_right, hv_max_edge_col_right, hv_min_edge_row, hv_max_edge_row);
-		return float(right - left);
+		float min_x, max_x, min_y, max_y;
+		getRollingROI(ROI_LEFT_START_BAR_NUM, ROI_LEFT_END_BAR_NUM, min_x, max_x, min_y, max_y);
+		left_edge_x_ = getRollingEdgeVertical(image, WLD_LEFT, min_x, max_x, min_y, max_y);
+		getRollingROI(ROI_RIGHT_START_BAR_NUM, ROI_RIGHT_END_BAR_NUM, min_x, max_x, min_y, max_y);
+		right_edge_x_ = getRollingEdgeVertical(image, WLD_RIGHT, min_x, max_x, min_y, max_y);
+		return float(right_edge_x_ - left_edge_x_);
 	}
 	catch (...) {
 		Logger l("d:");
@@ -135,7 +128,6 @@ float RollingPostionData::getRollingEdgeVertical(HImage image, eWidthLocateDirec
 	HObject  ho_ImageEmphasize, ho_Mean, ho_ImageOpening, ho_ImageClosing;
 	HObject  ho_Regions, ho_Connects, ho_SelectedRegion, ho_ImageBin;
 	HObject  ho_Rectangle;
-
 	// Local control variables
 	HTuple  hv_pixel2um, hv_min_edge_row;
 	HTuple  hv_max_edge_row, hv_min_edge_col, hv_max_edge_col;
@@ -150,18 +142,18 @@ float RollingPostionData::getRollingEdgeVertical(HImage image, eWidthLocateDirec
 	HTuple hv_threshold_gray_min = 100;
 	HTuple hv_threshold_gray_max = 255;
 	//**测量变量初始化**
-
 	GetImageSize(image, &hv_ImageWidth, &hv_ImageHeight);
 	//第一个测量对象轮廓线中心点行坐标
-	hv_MeasureStartRow = 0;
+	hv_MeasureStartRow = yMin;
 	//第一个测量对象轮廓线中心点列坐标
 	hv_MeasureStartCol = (xMin + xMax) / 2;
 	//测量对象角度（90度是1.57079， 0°是0）
 	hv_MeasurePhi = 0;
-	//测量对象长轴
-	hv_MeasureLength1 = 200;
-	//测量对象短轴
-	hv_MeasureLength2 = 2;
+	//测量对象纵轴（当角度为0时）
+	//hv_MeasureLength1 = xMax - xMin;
+	hv_MeasureLength1 = (xMax - xMin) / 2;
+	//测量对象横轴
+	hv_MeasureLength2 = 1;
 	//寻边个数
 	hv_FindEdgeNum = ((yMax - yMin) / hv_MeasureLength2) / 2;
 
@@ -174,15 +166,18 @@ float RollingPostionData::getRollingEdgeVertical(HImage image, eWidthLocateDirec
 	GrayOpeningRect(ho_Mean, &ho_ImageOpening, 2, 2);
 	GrayClosingRect(ho_ImageOpening, &ho_ImageClosing, 2, 2);
 
-
 	//斜率计算
-
 	Threshold(ho_ImageClosing, &ho_Regions, hv_threshold_gray_min, hv_threshold_gray_max);
 	Connection(ho_Regions, &ho_Connects);
-	SelectShape(ho_Connects, &ho_SelectedRegion, "area", "and", 600, 99999);
+	SelectShape(ho_Connects, &ho_SelectedRegion, "area", "and", 1200, (yMax - yMin) * (xMax - xMin));
+	HTuple Number;
+	CountObj(ho_SelectedRegion, &Number);
+	if (Number < 1) {
+		log_->Log("Error getRollingEdgeVertical # count obj ho _select region is 0, check concat image. ");
+	} else if (Number > 1) {
+		log_->Log("Warning getRollingEdgeVertical # count obj ho _select region more zhan  1, check concat image. ");
+	}
 	RegionToBin(ho_SelectedRegion, &ho_ImageBin, 15, 220, hv_ImageWidth, hv_ImageHeight);
-
-
 
 	//生成测量对象句柄
 	//插值算法支持bilinear， bicubic, nearest_neighbor
@@ -237,7 +232,6 @@ float RollingPostionData::getRollingEdgeVertical(HImage image, eWidthLocateDirec
 		}
 	}
 
-
 	//关闭测量对象
 	CloseMeasure(hv_MeasureHandle);
 	double result = 0;
@@ -272,14 +266,19 @@ bool RollingPostionData::check_battery_ear(HImage& image)
 		HTuple  hv_RowSojka, hv_ColSojka, hv_crossNum;
 
 		//debug 为1时会打印过程图像
+
 		hv_min_ear_row = 400;
 		hv_max_ear_row = 650;
 		hv_min_ear_col = 550;
 		hv_max_ear_col = 750;
 		ho_Image = image;
+		float min_x, max_x, min_y, max_y;
+		int roi_left_ear_min_x = int(left_edge_x_) + LEFT_EAR_TO_EDGE_MIN;
+		int roi_left_ear_max_x = int(left_edge_x_) + LEFT_EAR_TO_EDGE_MAX;
+		getRollingROI(roi_left_ear_min_x, roi_left_ear_max_x, min_x, max_x, min_y, max_y);
 		GetImageSize(ho_Image, &hv_Width, &hv_Height);
 
-		GenRectangle1(&ho_RoiEar, hv_min_ear_row, hv_min_ear_col, hv_max_ear_row, hv_max_ear_col);
+		GenRectangle1(&ho_RoiEar, min_y, min_x, max_y, max_x);
 		ReduceDomain(ho_Image, ho_RoiEar, &ho_Image);
 
 		hv_Dark = 100;
@@ -302,6 +301,25 @@ bool RollingPostionData::check_battery_ear(HImage& image)
 	catch (...) {
 		return false;
 	}
+}
+
+void RollingPostionData::getRollingROI(int min_bar_num, int max_bar_num, float& min_x, float& max_x, float& min_y, float& max_y)
+{
+	int min_bar_idx = min_bar_num * 8;
+	int max_bar_idx = max_bar_num * 8;
+	int min_bar_idx_next = min_bar_idx + 2;
+	int max_bar_idx_next = max_bar_idx + 2;
+	float top_min_x = calibration_lines_points_[min_bar_idx];
+	float bottom_min_x = calibration_lines_points_[min_bar_idx_next];
+	min_x = fminf(top_min_x, bottom_min_x);
+	float top_max_x = calibration_lines_points_[max_bar_idx];
+	float bottom_max_x = calibration_lines_points_[max_bar_idx_next];
+	max_x = fmaxf(top_max_x, bottom_max_x);
+	int min_bar_idx_y = min_bar_idx + 1;
+	int max_bar_idx_y = min_bar_idx + 3;
+	min_y = calibration_lines_points_[min_bar_idx_y];
+	max_y = calibration_lines_points_[max_bar_idx_y];
+	return;
 }
 
 void RollingPostionData::initial_calibration_lines()
