@@ -21,33 +21,43 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 	g_rolling_position_data = new RollingPostionData();
 	char message[2048];
 	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":%d,\"time\":\"%s\"}";
-	if (argc > 0) {
-		if (BaseFunctions::Chars2Int(in[0], 10) == CONCAT_IMAGE_FAIL) {
-			sprintf_s(message, 2048, messageFmt.c_str(), 0, "", 0, 0, 0, 0, 0, EAR_LOCATION_GRAB_FAILED, "2021-01-01 12:00:01");
-			strncpy_s(*out, 2048, message, 2048);
-			return out;
-		}
-	}
-	string imageStr;
-
-	imageStr = name;
+	string imageStr  = name;
 	float ll, lr, rl, rr;
-
-	if (g_rolling_position_data->is_rolling_ok()) {
-		ll = 21 + ((float)(rand() % 15)) / 10.0;
-		lr = 46 + ((float)(rand() % 15)) / 10.0;
-		rl = 94 + ((float)(rand() % 15)) / 10.0;
-		rr = 122 + ((float)(rand() % 10)) / 10.0;
+	try {
+		if (g_rolling_position_data->is_rolling_ok()) {
+			ll = 21 + ((float)(rand() % 15)) / 10.0;
+			lr = 46 + ((float)(rand() % 15)) / 10.0;
+			rl = 94 + ((float)(rand() % 15)) / 10.0;
+			rr = 122 + ((float)(rand() % 10)) / 10.0;
+		}
+		else {
+			ll = 22.47 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+			lr = 48.4 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+			rl = 94.55 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+			rr = 121.27 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+		}
+		sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), g_rolling_position_data->get_battery_width(), ll, lr, rl, rr, BaseFunctions::Chars2Int(in[0], 10), "2021-01-01 12:00:01");
+		strncpy_s(*out, 2048, message, 2048);
+		delete g_rolling_position_data;
 	}
-	else {
-		ll = 22.47 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
-		lr = 48.4 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
-		rl = 94.55 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
-		rr = 121.27 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+	catch (HalconCpp::HException& exception)
+	{
+		std::string messageFmt = "  Error #%u in %s: %s\n";
+		sprintf_s(message, 2048, messageFmt.c_str(), exception.ErrorCode(),
+			exception.ProcName().TextA(),
+			exception.ErrorMessage().TextA());
+		l.Log(message);
+		return out;
 	}
-	sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), g_rolling_position_data->get_battery_width(), ll, lr, rl, rr, BaseFunctions::Chars2Int(in[0], 10), "2021-01-01 12:00:01");
-	strncpy_s(*out, 2048, message, 2048);
-	delete g_rolling_position_data;
+	catch (const char* err) {
+		std::string messageFmt = "  Error #%s\n";
+		sprintf_s(message, 2048, messageFmt.c_str(), "  Error #%s\n", err);
+		l.Log(message);
+		return out;
+	}
+	catch (...) {
+		//to do list
+	}
 	return out;
 }
 

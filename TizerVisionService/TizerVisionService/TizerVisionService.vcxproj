@@ -75,7 +75,7 @@
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(ZMQ_ROOT);D:\basler\Development\include;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;D:\boost_1_76_0;C:\Program Files\MySQL\MySQL Server 8.0\include;$(IncludePath)</IncludePath>
-    <LibraryPath>$(ZMQ_ROOT);D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);D:\boost_1_76_0\libs;$(LibraryPath)</LibraryPath>
+    <LibraryPath>D:\basler\Development\lib\x64;$(ZMQ_ROOT);$(HALCONROOT)\lib\$(HALCONARCH);D:\boost_1_76_0\libs;C:\redis++;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IgnoreImportLibrary>true</IgnoreImportLibrary>
@@ -144,8 +144,8 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <RegisterOutput>false</RegisterOutput>
-      <AdditionalLibraryDirectories>D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);C:\Program Files\MySQL\MySQL Server 8.0\lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libzmq-v141-mt-4_3_2.lib;halconcpp.lib;libmysql.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\redis++;D:\basler\Development\lib\x64;$(HALCONROOT)\lib\$(HALCONARCH);C:\Program Files\MySQL\MySQL Server 8.0\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libzmq-v141-mt-4_3_2.lib;halconcpp.lib;libmysql.lib;redis++_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <PerUserRedirection>false</PerUserRedirection>
       <StackReserveSize>8002165</StackReserveSize>
       <StackCommitSize>8002165</StackCommitSize>
