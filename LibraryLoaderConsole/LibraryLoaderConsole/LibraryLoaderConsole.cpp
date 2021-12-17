@@ -20,7 +20,6 @@
 
 #include "SerialPort.h"
 
-
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
 #define PROGRAM_COMPLIRE_VERSION "Console program, version 1.1210.13"
@@ -45,6 +44,7 @@ typedef bool (*calibrationWork)(int, char* []);
 typedef void (*callHalconFunc)(char*);
 typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [], HBYTE[]));
 typedef void (*setHalconFunction)(callHalconFunc);
+typedef void (*call_image_concat)();
 
 using namespace commonfunction_c;
 static int index;
@@ -111,16 +111,41 @@ unsigned long readRedisProc(void* lpParameter) {
 			//do nothing
 		}
 		Sleep(2000);
-	}
+	}//while
 	return 0;
 }
 
 class LibraryLoader {
 public:
 	//读取算法动态链接库
-	void runHalconLib(int argc, char* in[], string image){
-		int x = argc;
+	void runHalconLib(int argc, char* in[], string image) {
+		Logger l("d:");
 		HINSTANCE hDllInst;
+
+		Redis redis = Redis("tcp://127.0.0.1:6379");
+		StringView work_status_key = REDIS_WORK_STATUS_KEY;
+		auto work_status_value = redis.get(work_status_key);
+		if (work_status_value.value()._Equal(REDIS_WORK_STATUS_STOP) > 0) {
+			//客户停止检测程序
+			l.Log("Measure program stopped by client user!");
+
+			return;
+		}
+		StringView key = REDIS_LIST_CALIBRATION_KEY;
+		int calibration_line_top, calibration_line_bottom;
+		auto value = redis.rpop(key);
+		int param_num = 0;
+		try {
+			JsonHelper jh(value.value());
+			calibration_line_top = BaseFunctions::Str2Int(jh.search(JSON_CALIBRATION_TOP_KEY), 0);
+			calibration_line_bottom = BaseFunctions::Str2Int(jh.search(JSON_CALIBRATION_BOTTOM_KEY), 1);
+			param_num = 3;
+		}
+		catch (...) {
+			calibration_line_top = 0;
+			calibration_line_bottom = 0;
+			param_num = 1;
+		}
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
 		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("halconLibrary", string("string"))).c_str()));
 		if (hDllInst == 0)
@@ -130,8 +155,6 @@ public:
 		if (func == 0)
 			return;
 		int burr_limit = 15;
-		int grayMin = 140;
-		int grayMax = 255;
 		int localImage = ch.findValue("localImage", 1);
 		char* source[8];
 		//设置输入参数
@@ -139,26 +162,24 @@ public:
 		int width = 1920; //实际参数需要参看相机情况，读取本地文件时设置为0
 		int height = 1080; // 同上
 		int polesWidth = 10;
-		source[0] = in[0];
-		source[1] = (char*)(&grayMin);
-		source[2] = (char*)(&grayMax);
-		source[3] = (char*)(&width);
-		source[4] = (char*)(&height);
+		source[0] = in[0]; //status
+		source[1] = (char*)(&calibration_line_top);
+		source[2] = (char*)(&calibration_line_bottom);
+		source[3] = NULL;
+		source[4] = NULL;
 		source[5] = NULL;
-		source[6] = (char*)(&polesWidth);
-		source[7] = (char*)(&localImage);
+		source[6] = NULL;
+		source[7] = NULL;
 		//初始化输出参数
 		char buffer[INT_HALCON_BURR_RESULT_SIZE] = { '\0' };
 		char** out = new char* ();
 		*out = &buffer[0];
 		try {
-			Logger l("d:");
-			func(6, source, image.c_str(), out);
+			func(param_num, source, image.c_str(), out);
 			l.Log(string(*out));
 			lPush(REDIS_WRITE_KEY, string(*out));
 		}
 		catch (...) {
-
 		}
 		//std::cout << "get taichi result : " << **out << std::endl;
 		if (hDllInst > 0)
@@ -167,7 +188,6 @@ public:
 	}
 
 	//读取相机动态链接库
-
 	HImage runCameraLib() {
 		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&readRedisProc, NULL, 0, 0);
 		HINSTANCE hDllInst;
@@ -184,7 +204,6 @@ public:
 			FreeLibrary(hDllInst);
 			throw "Load camera library function failed!";
 		}
-
 		setHalconFunction setFunc = NULL;
 		setFunc = (setHalconFunction)GetProcAddress(hDllInst, "setHalconFunction");
 		if (setFunc == 0) {
@@ -193,7 +212,6 @@ public:
 		}
 		//测试委托
 		setFunc(delegateFunction);
-
 		string cameraLeftName = ch.findValue("cameraLeftName", string("string"));
 		string cameraMidName = ch.findValue("cameraMidName", string("string"));
 		string cameraRightName = ch.findValue("cameraRightName", string("string"));
@@ -245,6 +263,7 @@ public:
 
 	void runCalibration() {
 		HINSTANCE hDllInst;
+
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
 		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("calibrationLibrary", string("string"))).c_str()));
 		if (hDllInst == 0) {
@@ -262,6 +281,25 @@ public:
 			l.Log("Calibration failed!");
 		else
 			l.Log("Calibration successed!");
+		return;
+	}
+
+	void run_manual_concat_image() {
+		Logger l("d:");
+		HINSTANCE hDllInst;
+		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
+		l.Log(ch.findValue("cameraLibrary", string("string")));
+		hDllInst = LoadLibrary(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str());
+		if (hDllInst == 0) {
+			throw "Load camera library failed!";
+		}
+		call_image_concat call_image_concat_function = NULL;
+		call_image_concat_function = (call_image_concat)GetProcAddress(hDllInst, "call_image_concat");
+		if (call_image_concat_function == 0) {
+			FreeLibrary(hDllInst);
+			throw "Load camera library function call_image_concat failed!";
+		}
+		call_image_concat_function();
 		return;
 	}
 
@@ -295,6 +333,7 @@ int main()
 	std::cout << "[2] Image test! \n";
 	std::cout << "[3] create calibration file! \n";
 	std::cout << "[4] grab calibration image! \n";
+	std::cout << "[5] concat image manual, ONLY IN DEBUG MODE! \n";
 	while (true) {
 		std::cin >> index;
 		std::cout << "selected index :" << index << std::endl;
@@ -321,6 +360,9 @@ int main()
 				break;
 			case 4:
 				ll.runCalibrationCameraLib();
+				break;
+			case 5:
+				ll.run_manual_concat_image();
 				break;
 			default:
 				break;
@@ -351,8 +393,6 @@ int main()
 
 	return 0;
 }
-
-
 
 void delegateFunction(char* msg) {
 	ll.lPush("to_test", msg);

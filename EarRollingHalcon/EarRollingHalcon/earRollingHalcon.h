@@ -24,10 +24,12 @@ enum eWidthLocateDirect
 
 class RollingPostionData {
 public:
-	RollingPostionData() {
+	RollingPostionData(int top, int bottom, string name) {
 		log_ = new Logger();
+		set_manual_top(top);
+		set_manual_bottom(top);
 		initial_calibration_lines();
-		load_image();
+		load_image(name);
 		set_battery_width(measure_battery_width(ho_image_));
 		update_battery_status(check_battery_ear(ho_image_));
 	}
@@ -41,8 +43,13 @@ public:
 	float get_battery_width() { return battery_width_; }
 	//合格返回true 不合格返回false
 	bool is_rolling_ok() { return is_rolling_ok_; } 
+	void set_manual_top(int value) { manual_param_top_ = value; }
+	void set_manual_bottom(int value) { manual_param_bottom_ = value; }
+	int get_manual_top() { return manual_param_top_; }
+	int get_manual_bottom() { return manual_param_bottom_; }
 private:
 	int calibration_line_num_;
+	int manual_param_top_, manual_param_bottom_;
 	vector<float> calibration_lines_points_;
 	HImage ho_image_;
 	float battery_width_; //电芯宽度
@@ -56,7 +63,7 @@ private:
 	//从右侧侧开始某个点在标定区域内的横向坐标（右侧相机用)
 	float get_distance_right(float x, float y);
 	void set_battery_width(float value) { battery_width_ = value; }
-	void load_image();
+	void load_image(string);
 	float measure_battery_width(HImage& image);
 	float getRollingEdgeVertical(HImage image, eWidthLocateDirect direct, int xMin, int xMax, int yMin, int yMax); //横向极值点
 	bool check_battery_ear(HImage& image); //极耳位置判定，没问题返回true，否则返回false

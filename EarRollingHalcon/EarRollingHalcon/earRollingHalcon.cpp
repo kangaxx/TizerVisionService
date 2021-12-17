@@ -7,10 +7,17 @@
 #include "earRollingHalcon.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "halcon library, version 1.1213.10"
+//#define DEBUG_MODE //调试模式，使用固定文件调试算法
+
+#define LIBRAR_VERSION_NUMBER "1.1217.15"
+#ifdef  DEBUG_MODE
+#define LIBRARY_COMPLIRE_VERSION "halcon library, debug mode, version " LIBRAR_VERSION_NUMBER
+#else
+#define LIBRARY_COMPLIRE_VERSION "halcon library, version " LIBRAR_VERSION_NUMBER
+#endif //  DEBUG_MODE
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 
-#define DEBUG_MODE //调试模式，使用固定文件调试算法
+
 using namespace commonfunction_c;
 using halconfunction::CalibrationDataHelper;
 
@@ -18,8 +25,12 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 {
 	Logger l("d:");
 	l.Log(LIBRARY_COMPLIRE_VERSION);
-	g_rolling_position_data = new RollingPostionData();
+	if (argc > 2)
+		g_rolling_position_data = new RollingPostionData(BaseFunctions::Chars2Int(in[1]), BaseFunctions::Chars2Int(in[2]), string(name));
+	else
+		g_rolling_position_data = new RollingPostionData(-1, -1, string(name));
 	char message[2048];
+	srand(time(NULL));
 	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":%d,\"time\":\"%s\"}";
 	string imageStr  = name;
 	float ll, lr, rl, rr;
@@ -103,13 +114,15 @@ float RollingPostionData::get_distance_right(float x, float y)
 	return get_distance_left(x, y) + calibration_line_num_ - float(total_line_num);
 }
 
-void RollingPostionData::load_image()
+void RollingPostionData::load_image(string name)
 {
 #ifndef DEBUG_MODE
+	Logger l;
 	string image_name = string(name) + ".jpg";
+	l.Log("file name:" + image_name);
 	HalconCpp::ReadImage(&ho_image_, image_name.c_str());
 #else
-	ReadImage(&ho_image_, "d:/images/trigger_concat_2.jpg");
+	ReadImage(&ho_image_, "d:/images/trigger_concat_400.jpg");
 #endif
 }
 
@@ -119,7 +132,8 @@ float RollingPostionData::measure_battery_width(HImage& image)
 		float min_x, max_x, min_y, max_y;
 		getRollingROI(ROI_LEFT_START_BAR_NUM, ROI_LEFT_END_BAR_NUM, min_x, max_x, min_y, max_y);
 		left_edge_x_ = getRollingEdgeVertical(image, WLD_LEFT, min_x, max_x, min_y, max_y);
-		getRollingROI(ROI_RIGHT_START_BAR_NUM, ROI_RIGHT_END_BAR_NUM, min_x, max_x, min_y, max_y);
+		int total_bar_num = this->calibration_lines_points_.size() / 8;
+		getRollingROI(total_bar_num + ROI_RIGHT_START_BAR_NUM, total_bar_num + ROI_RIGHT_END_BAR_NUM, min_x, max_x, min_y, max_y);
 		right_edge_x_ = getRollingEdgeVertical(image, WLD_RIGHT, min_x, max_x, min_y, max_y);
 		return float(right_edge_x_ - left_edge_x_);
 	}
@@ -287,7 +301,8 @@ bool RollingPostionData::check_battery_ear(HImage& image)
 		int roi_left_ear_max_x = int(left_edge_x_) + LEFT_EAR_TO_EDGE_MAX;
 		getRollingROI(roi_left_ear_min_x, roi_left_ear_max_x, min_x, max_x, min_y, max_y);
 		GetImageSize(ho_Image, &hv_Width, &hv_Height);
-
+		min_y = get_manual_top() > 0 ? get_manual_top() : min_y; //如果手动设置过，就用手动设置的参数
+		max_y = get_manual_bottom() > 0 ? get_manual_bottom() : max_y;
 		GenRectangle1(&ho_RoiEar, min_y, min_x, max_y, max_x);
 		ReduceDomain(ho_Image, ho_RoiEar, &ho_Image);
 
@@ -301,7 +316,6 @@ bool RollingPostionData::check_battery_ear(HImage& image)
 		//Sojka interest points detector
 		PointsSojka(ho_Image, 11, 2.5, 0.75, 2, 90, 1.5, "true", &hv_RowSojka, &hv_ColSojka);
 		GenCrossContourXld(&ho_CrossSojka, hv_RowSojka, hv_ColSojka, hv_Size, hv_Angle);
-
 		CountObj(ho_CrossSojka, &hv_crossNum);
 		if (hv_crossNum > MAX_CROSS_ERROR)
 			return false;

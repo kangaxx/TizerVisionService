@@ -1,4 +1,5 @@
 #pragma once
+#include <time.h>
 #include <UserEnv.h>
 #include "../../../hds/FastDelegate.h"
 #include "../../../hds/Logger.h"
@@ -41,6 +42,7 @@ static callHalconFunc g_halconFunction = nullptr;
 extern "C" {
 	__declspec(dllexport) HImage cameraWorker(int argc, char* in[]);
 	__declspec(dllexport) void setHalconFunction(callHalconFunc func);
+	__declspec(dllexport) void call_image_concat();
 }
 
 HImage HByteToHImage(int width, int height, HBYTE* bytes);
@@ -50,7 +52,7 @@ string sendGrabFailedMessageByWebsocket();
 string sendEarLocationCorrectMessageByWebsocket(int id);
 string sendEarLocationErrorMessageByWebsocket(int id);
 void switchTrigger485(int);
-HImage imageConcat(int id);
+HImage imageConcat(time_t id);
 //以下算法部分后续要移到rolling halcon library里 gxx
 enum eWidthLocateDirect
 {

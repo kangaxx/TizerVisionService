@@ -10,7 +10,7 @@
 #include "ModbusThread.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.1210.10"
+#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.1216.16"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 
 #define SAVE_IMAGE_PREFIX "d:/grabs/trigger_concat_"
@@ -47,7 +47,7 @@ static const uint32_t c_countOfImagesToGrab = 5;
 static int g_cameraNum = 0;
 //static int* g_cameraGrabFlag;
 static 	CBaslerUniversalInstantCamera cameras[MAX_CAMERA_COUNT];
-static int g_id = 0; //grab id;
+static time_t g_id = 0; //grab id;
 static int g_grabResults[MAX_CAMERA_COUNT];
 static HImage g_images[MAX_CAMERA_COUNT];
 static int g_concatLocation[3] = { 0, 1, 2 };
@@ -227,7 +227,7 @@ HImage cameraWorker(int argc, char* in[])
 			float lr = 49 + ((float)(rand() % 17)) / 10.0;
 			float rl = 76 + ((float)(rand() % 17)) / 10.0;
 			float rr = 125 + ((float)(rand() % 17)) / 10.0;
-			string imageStr = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(g_id);
+			string imageStr = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::time2str(g_id);
 			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, concatStatus, "2021-01-01 12:00:01");
 			strcpy_s(g_message, message);
 			if (concatStatus == CONCAT_IMAGE_FAIL) {
@@ -590,7 +590,8 @@ unsigned long ImageConcatProc(void* lpParameter)
 		case GRAB_STATUS_SUCCESSED:
 
 			try {
-				fileName = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(++g_id) + ".jpg";
+				time(&g_id);
+				fileName = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::time2str(g_id) + ".jpg";
 				image = imageConcat(g_id);
 
 			}
@@ -706,7 +707,25 @@ string sendEarLocationErrorMessageByWebsocket(int id)
 }
 */
 
-HImage imageConcat(int id)
+//外部接口函数，手动拼接图片，仅供调试程序用
+void call_image_concat()
+{
+#ifndef MODE_DEBUG
+	Logger l;
+	l.Log("Not in debug mode ,can not manual concat image!");
+	return;
+#endif
+	g_cameraNum = 3; //debug mode 下可能没有相机，这里需要手动设置为3
+	ReadImage(&(g_images[0]), "d:/grabs/27_1.bmp");
+	ReadImage(&(g_images[1]), "d:/grabs/27_2.bmp");
+	ReadImage(&(g_images[2]), "d:/grabs/27_3.bmp");
+	time(&g_id);
+	HImage image = imageConcat(g_id);
+	image.WriteImage("jpg", 0, "d:/grabs/trigger_concat_0.jpg");
+	return;
+}
+
+HImage imageConcat(time_t id)
 {
 	Logger l("d:/");
 	// Local iconic variables
@@ -724,34 +743,38 @@ HImage imageConcat(int id)
 	for (int i = 0; i < g_cameraNum; ++i) {
 		images[i] = g_images[g_concatLocation[i]];
 	}
-	hv_LeftColStart = 540;
+	hv_LeftColStart = 0;
 	hv_LeftColEnd = 1700;
 	hv_MidColStart = 100;
 	hv_MidColEnd = 1800;
-	hv_RightColStart = 180;
-	hv_RightColEnd = 1880;
-	hv_adjustMidX = (hv_LeftColEnd - hv_LeftColStart) - hv_MidColStart;
-	hv_adjustRightX = (hv_adjustMidX + hv_MidColEnd) - hv_RightColStart;
+	hv_RightColStart = 0;
+	hv_RightColEnd = 1400;
+	hv_adjustMidX = (hv_LeftColEnd - hv_LeftColStart) - hv_MidColStart + 5;
+	hv_adjustRightX = (hv_adjustMidX + hv_MidColEnd) - hv_RightColStart + 5;
 	ho_ImageLeft = images[0];
 	
-	string fileNameLeft = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(g_id) + "_1.jpg";
+	string fileNameLeft = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::time2str(g_id) + "_1.jpg";
 	HImage(ho_ImageLeft).WriteImage("jpg", 0, fileNameLeft.c_str());
 
-	//ReadImage(&ho_ImageLeft, "D:/Images/27_1.bmp");
+	//ReadImage(&ho_ImageLeft, "d:/grabs/27_1.bmp");
 	hv_Width = 1920;
 	hv_Height = 1080;
 	//GetImageSize(ho_ImageMid, &hv_Width, &hv_Height);
-	GenImageConst(&ho_ImageConcat, "byte", (((((hv_LeftColEnd + hv_MidColEnd) + hv_RightColEnd) - hv_LeftColStart) - hv_MidColStart) - hv_RightColStart) + 3,
+	GenImageConst(&ho_ImageConcat, "byte", (((((hv_LeftColEnd + hv_MidColEnd) + hv_RightColEnd) - hv_LeftColStart) - hv_MidColStart) - hv_RightColStart) + 3 + 10,
+		hv_Height);
+	HObject RegionBG;
+	Threshold(ho_ImageConcat, &RegionBG, 0, 0);
+	RegionToBin(RegionBG, &ho_ImageConcat, 255, 255, (((((hv_LeftColEnd + hv_MidColEnd) + hv_RightColEnd) - hv_LeftColStart) - hv_MidColStart) - hv_RightColStart) + 3 + 10,
 		hv_Height);
 	GenRectangle1(&ho_RegionLeft, 0, hv_LeftColStart, hv_Height - 1, hv_LeftColEnd);
 	GetRegionPoints(ho_RegionLeft, &hv_LeftRows, &hv_LeftColumns);
 	GetGrayval(ho_ImageLeft, hv_LeftRows, hv_LeftColumns, &hv_LeftGrayval);
 	SetGrayval(ho_ImageConcat, hv_LeftRows, hv_LeftColumns - hv_LeftColStart, hv_LeftGrayval);
-
+	int camera_num = g_cameraNum;
 	if (g_cameraNum > 1) {
-		//ReadImage(&ho_ImageRight, "D:/Images/27_2.bmp");
 		ho_ImageMid = images[1];
-		string fileNameMid = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(g_id) + "_2.jpg";
+		//ReadImage(&ho_ImageMid, "d:/grabs/27_2.bmp");
+		string fileNameMid = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::time2str(g_id) + "_2.jpg";
 		HImage(ho_ImageMid).WriteImage("jpg", 0, fileNameMid.c_str());
 		GenRectangle1(&ho_RegionMid, 0, hv_MidColStart, hv_Height - 1, hv_MidColEnd);
 		GetRegionPoints(ho_RegionMid, &hv_MidRows, &hv_MidColumns);
@@ -760,9 +783,9 @@ HImage imageConcat(int id)
 	}
 	//注意不是else if
 	if (g_cameraNum == 3) {
-		//ReadImage(&ho_ImageRight, "D:/Images/27_3.bmp");
 		ho_ImageRight = images[2];
-		string fileNameRight = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::Int2Str(g_id) + "_3.jpg";
+		//ReadImage(&ho_ImageRight, "d:/grabs/27_3.bmp");
+		string fileNameRight = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::time2str(g_id) + "_3.jpg";
 		HImage(ho_ImageRight).WriteImage("jpg", 0, fileNameRight.c_str());
 		GenRectangle1(&ho_RegionRight, 0, hv_RightColStart, hv_Height - 1, hv_RightColEnd);
 		GetRegionPoints(ho_RegionRight, &hv_RightRows, &hv_RightColumns);

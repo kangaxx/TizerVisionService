@@ -3,7 +3,7 @@
 #include "../../../hds/common.h"
 #include "../../../hds/Logger.h"
 using namespace commonfunction_c;
-#define COMPILE_LIBRARY_VERSION "calibration library ,version 1.1210.10"
+#define COMPILE_LIBRARY_VERSION "calibration library ,version 1.1216.10"
 bool calibrationWorker(int argc, char* in[])
 {
 	Logger l;
@@ -32,8 +32,12 @@ bool calibrationWorker(int argc, char* in[])
 	Gray_Min = 0;
 	Gray_Max = 50;
 	GetImageSize(Image, &Width, &Height);
+	GenRectangle1(&Rectangle, 250, 400, 950, Width);
+	ReduceDomain(Image, Rectangle, &Image);
 	Threshold(Image, &Region, Gray_Min, Gray_Max);
 	Connection(Region, &Region);
+	SelectShape(Region, &RegionReduced, "area", "and", 6000, 17000);
+	/*
 	SmallestRectangle1(Region, &Row1, &Column1, &Row2, &Column2);
 	TupleMax(Row1, &RowTop);
 	TupleMin(Row2, &RowBottom);
@@ -42,6 +46,7 @@ bool calibrationWorker(int argc, char* in[])
 
 	Threshold(ImageReduced, &RegionReduced, Gray_Min, Gray_Max);
 	Connection(RegionReduced, &RegionReduced);
+	*/
 	CountObj(RegionReduced, &Number);
 	Logger calibration_info_log(WINDING_CALIBRATION_PATH);
 	calibration_info_log.ClearLog(WINDING_CALIBRATION_INFO_FILENAME, BaseFunctions::Int2Str(CALIBRATION_LINE_BAR_COUNT));
@@ -51,63 +56,68 @@ bool calibrationWorker(int argc, char* in[])
 	ColReduced1 = ColReduced1.TupleSelect(Indices);
 	for (int i = 0; i < Number; ++i)
 	{
-		SelectShape(RegionReduced, &RegionBar, "column1", "and", HTuple(ColReduced1[i]),
-			HTuple(ColReduced1[i]));
-		GenContourRegionXld(RegionBar, &Contours, "border");
-		GetContourXld(Contours, &RowXld, &ColXld);
-		TupleSortIndex(RowXld, &IndicesXld);
-		RowXld = RowXld.TupleSelect(IndicesXld);
-		ColXld = ColXld.TupleSelect(IndicesXld);
-		TupleMin(RowXld, &RowXldMin);
-		TupleMax(RowXld, &RowXldMax);
-		TupleLength(RowXld, &LengthRow);
-		TupleLength(ColXld, &LengthCol);
-		ColLeftTop = Width;
-		ColLeftBottom = Width;
-		ColRightTop = 0;
-		ColRightBottom = 0;
+		try {
+			SelectShape(RegionReduced, &RegionBar, "column1", "and", HTuple(ColReduced1[i]),
+				HTuple(ColReduced1[i]));
+			GenContourRegionXld(RegionBar, &Contours, "border");
+			GetContourXld(Contours, &RowXld, &ColXld);
+			TupleSortIndex(RowXld, &IndicesXld);
+			RowXld = RowXld.TupleSelect(IndicesXld);
+			ColXld = ColXld.TupleSelect(IndicesXld);
+			TupleMin(RowXld, &RowXldMin);
+			TupleMax(RowXld, &RowXldMax);
+			TupleLength(RowXld, &LengthRow);
+			TupleLength(ColXld, &LengthCol);
+			ColLeftTop = Width;
+			ColLeftBottom = Width;
+			ColRightTop = 0;
+			ColRightBottom = 0;
 
-		for (int j = 0; j < LengthRow; ++j)
-		{
-			if (0 != (int(HTuple(RowXld[j]) == RowXldMin)))
+			for (int j = 0; j < LengthRow; ++j)
 			{
-				if (0 != (int(ColLeftTop > HTuple(ColXld[j]))))
+				if (0 != (int(HTuple(RowXld[j]) == RowXldMin)))
 				{
-					ColLeftTop = HTuple(ColXld[j]);
+					if (0 != (int(ColLeftTop > HTuple(ColXld[j]))))
+					{
+						ColLeftTop = HTuple(ColXld[j]);
+					}
+					if (0 != (int(ColRightTop < HTuple(ColXld[j]))))
+					{
+						ColRightTop = HTuple(ColXld[j]);
+					}
 				}
-				if (0 != (int(ColRightTop < HTuple(ColXld[j]))))
+				if (0 != (int(HTuple(RowXld[j]) == RowXldMax)))
 				{
-					ColRightTop = HTuple(ColXld[j]);
+					if (0 != (int(ColLeftBottom > HTuple(ColXld[j]))))
+					{
+						ColLeftBottom = HTuple(ColXld[j]);
+					}
+					if (0 != (int(ColRightBottom < HTuple(ColXld[j]))))
+					{
+						ColRightBottom = HTuple(ColXld[j]);
+					}
 				}
 			}
-			if (0 != (int(HTuple(RowXld[j]) == RowXldMax)))
-			{
-				if (0 != (int(ColLeftBottom > HTuple(ColXld[j]))))
-				{
-					ColLeftBottom = HTuple(ColXld[j]);
-				}
-				if (0 != (int(ColRightBottom < HTuple(ColXld[j]))))
-				{
-					ColRightBottom = HTuple(ColXld[j]);
-				}
-			}
+			Logger calibration_log(WINDING_CALIBRATION_PATH);
+			float top_y = RowXldMin;
+			float bottom_y = RowXldMax;
+			float left_top_x = ColLeftTop;
+			float left_bottom_x = ColLeftBottom;
+			float right_top_x = ColRightTop;
+			float right_bottom_x = ColRightBottom;
+			//char out[9];
+			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(left_top_x));
+			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(top_y));
+			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(left_bottom_x));
+			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(bottom_y));
+			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(right_top_x));
+			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(top_y));
+			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(right_bottom_x));
+			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(bottom_y));
 		}
-		Logger calibration_log(WINDING_CALIBRATION_PATH);
-		float top_y = RowXldMin;
-		float bottom_y = RowXldMax;
-		float left_top_x = ColLeftTop;
-		float left_bottom_x = ColLeftBottom;
-		float right_top_x = ColRightTop;
-		float right_bottom_x = ColRightBottom;
-		//char out[9];
-		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(left_top_x));
-		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(top_y));
-		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(left_bottom_x));
-		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(bottom_y));
-		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(right_top_x));
-		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(top_y));
-		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(right_bottom_x));
-		calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(bottom_y));
+		catch (...) {
+
+		}
 	}
 
 	return true;
