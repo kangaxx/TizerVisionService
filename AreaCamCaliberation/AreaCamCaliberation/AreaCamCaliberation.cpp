@@ -3,7 +3,7 @@
 #include "../../../hds/common.h"
 #include "../../../hds/Logger.h"
 using namespace commonfunction_c;
-#define COMPILE_LIBRARY_VERSION "calibration library ,version 1.1216.10"
+#define COMPILE_LIBRARY_VERSION "calibration library ,version 1.1223.10"
 bool calibrationWorker(int argc, char* in[])
 {
 	Logger l;
@@ -32,11 +32,11 @@ bool calibrationWorker(int argc, char* in[])
 	Gray_Min = 0;
 	Gray_Max = 50;
 	GetImageSize(Image, &Width, &Height);
-	GenRectangle1(&Rectangle, 250, 400, 950, Width);
-	ReduceDomain(Image, Rectangle, &Image);
+	//GenRectangle1(&Rectangle, 250, 400, 950, Width);
+	//ReduceDomain(Image, Rectangle, &Image);
 	Threshold(Image, &Region, Gray_Min, Gray_Max);
 	Connection(Region, &Region);
-	SelectShape(Region, &RegionReduced, "area", "and", 6000, 17000);
+	SelectShape(Region, &RegionReduced, "area", "and", 4000, 31000);
 	/*
 	SmallestRectangle1(Region, &Row1, &Column1, &Row2, &Column2);
 	TupleMax(Row1, &RowTop);
@@ -49,7 +49,7 @@ bool calibrationWorker(int argc, char* in[])
 	*/
 	CountObj(RegionReduced, &Number);
 	Logger calibration_info_log(WINDING_CALIBRATION_PATH);
-	calibration_info_log.ClearLog(WINDING_CALIBRATION_INFO_FILENAME, BaseFunctions::Int2Str(CALIBRATION_LINE_BAR_COUNT));
+	calibration_info_log.SimpleLog(WINDING_CALIBRATION_INFO_FILENAME, BaseFunctions::Int2Str(CALIBRATION_LINE_BAR_COUNT));
 	SmallestRectangle1(RegionReduced, &RowReduced1, &ColReduced1,
 		&RowReduced2, &ColReduced2);
 	TupleSortIndex(ColReduced1, &Indices);
@@ -106,14 +106,14 @@ bool calibrationWorker(int argc, char* in[])
 			float right_top_x = ColRightTop;
 			float right_bottom_x = ColRightBottom;
 			//char out[9];
-			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(left_top_x));
-			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(top_y));
-			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(left_bottom_x));
-			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(bottom_y));
-			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(right_top_x));
-			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(top_y));
-			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(right_bottom_x));
-			calibration_log.ClearLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(bottom_y));
+			calibration_log.SimpleLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(left_top_x));
+			calibration_log.SimpleLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(top_y));
+			calibration_log.SimpleLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(left_bottom_x));
+			calibration_log.SimpleLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(bottom_y));
+			calibration_log.SimpleLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(right_top_x));
+			calibration_log.SimpleLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(top_y));
+			calibration_log.SimpleLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(right_bottom_x));
+			calibration_log.SimpleLog(WINDING_CALIBRATION_POINTS_FILENAME, BaseFunctions::f2str(bottom_y));
 		}
 		catch (...) {
 
