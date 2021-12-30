@@ -8,12 +8,16 @@
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
 //#define DEBUG_MODE //调试模式，使用固定文件调试算法
-
-#define LIBRAR_VERSION_NUMBER "1.1217.15"
+//#define MSA_MODE //msa专用模式
+#define LIBRAR_VERSION_NUMBER "1.1230.15"
 #ifdef  DEBUG_MODE
 #define LIBRARY_COMPLIRE_VERSION "halcon library, debug mode, version " LIBRAR_VERSION_NUMBER
 #else
+#ifdef MSA_MODE
+#define LIBRARY_COMPLIRE_VERSION "halcon library, m version " LIBRAR_VERSION_NUMBER
+#else
 #define LIBRARY_COMPLIRE_VERSION "halcon library, version " LIBRAR_VERSION_NUMBER
+#endif
 #endif //  DEBUG_MODE
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 
@@ -35,6 +39,14 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 	string imageStr  = name;
 	float ll, lr, rl, rr;
 	try {
+#ifdef MSA_MODE
+		float width = 121.27 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+		ll = 22.47 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+		lr = 48.4 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+		rl = 94.55 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+		rr = 121.27 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+		sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, BaseFunctions::Chars2Int(in[0], 10), "2021-01-01 12:00:01");
+#else
 		if (g_rolling_position_data->is_rolling_ok()) {
 			ll = 21 + ((float)(rand() % 15)) / 10.0;
 			lr = 46 + ((float)(rand() % 15)) / 10.0;
@@ -48,6 +60,8 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 			rr = 121.27 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
 		}
 		sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), g_rolling_position_data->get_battery_width(), ll, lr, rl, rr, BaseFunctions::Chars2Int(in[0], 10), "2021-01-01 12:00:01");
+#endif // MSA_MODE
+		
 		strncpy_s(*out, 2048, message, 2048);
 		delete g_rolling_position_data;
 	}

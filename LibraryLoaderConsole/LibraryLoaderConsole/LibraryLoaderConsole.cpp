@@ -22,7 +22,7 @@
 
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
-#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.1210.13"
+#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.1230.14"
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -165,7 +165,7 @@ public:
 		source[0] = in[0]; //status
 		source[1] = (char*)(&calibration_line_top);
 		source[2] = (char*)(&calibration_line_bottom);
-		source[3] = NULL;
+		source[3] = NULL; 
 		source[4] = NULL;
 		source[5] = NULL;
 		source[6] = NULL;
@@ -215,7 +215,6 @@ public:
 		string cameraLeftName = ch.findValue("cameraLeftName", string("string"));
 		string cameraMidName = ch.findValue("cameraMidName", string("string"));
 		string cameraRightName = ch.findValue("cameraRightName", string("string"));
-		cout << "cameraLeftName: " << cameraLeftName << endl;
 		char* in[5];
 		char leftCamera[50], midCamera[50], rightCamera[50];
 		strcpy_s(leftCamera, cameraLeftName.c_str());
@@ -353,7 +352,7 @@ int main()
 				char status[10];
 				strcpy_s(status, 10, BaseFunctions::Int2Str(CONCAT_IMAGE_SUCCESS).c_str());
 				args[0] = &status[0];
-				ll.runHalconLib(1, args, "");
+				ll.runHalconLib(2, args, "d:/images/trigger_concat_400");
 				break;
 			case 3:
 				ll.runCalibration();

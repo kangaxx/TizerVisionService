@@ -10,7 +10,7 @@
 #include "ModbusThread.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.1216.16"
+#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.1230.15"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 
 #define SAVE_IMAGE_PREFIX "d:/grabs/trigger_concat_"
@@ -166,7 +166,7 @@ HImage cameraWorker(int argc, char* in[])
 			cameras[i].TriggerSelector.SetValue(TriggerSelector_FrameStart);
 			cameras[i].TriggerMode.SetValue(TriggerMode_On);
 			cameras[i].LineSelector.SetValue(LineSelector_Line1);
-			//cameras[i].LineDebouncerTimeAbs.SetValue(20000);
+			cameras[i].LineDebouncerTimeAbs.SetValue(20000);
 			cameras[i].LineMode.SetValue(LineMode_Input);
 			cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
 			cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
@@ -233,7 +233,6 @@ HImage cameraWorker(int argc, char* in[])
 			if (concatStatus == CONCAT_IMAGE_FAIL) {
 				if (g_halconFunction != nullptr)
 					g_halconFunction(g_message);
-				switchTrigger485(1); //debug gxx ,need to remove to main program
 			}
 			else if (concatStatus == CONCAT_IMAGE_SUCCESS) {
 				if (g_halconFunction != nullptr)
