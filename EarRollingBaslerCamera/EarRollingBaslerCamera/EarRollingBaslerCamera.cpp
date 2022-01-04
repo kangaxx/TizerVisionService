@@ -231,12 +231,16 @@ HImage cameraWorker(int argc, char* in[])
 			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, concatStatus, "2021-01-01 12:00:01");
 			strcpy_s(g_message, message);
 			if (concatStatus == CONCAT_IMAGE_FAIL) {
-				if (g_halconFunction != nullptr)
+				if (g_halconFunction != nullptr) {
+					l.Log("Test log, #concat fail and call halcon");
 					g_halconFunction(g_message);
+				}
 			}
 			else if (concatStatus == CONCAT_IMAGE_SUCCESS) {
-				if (g_halconFunction != nullptr)
+				if (g_halconFunction != nullptr) {
+					l.Log("Test log, #concat success and call halcon");
 					g_halconFunction(g_message);
+				}
 			}
 			//照相抓图失败，basler相机报错
 			else {
@@ -524,10 +528,6 @@ unsigned long grabProc(void* lpParameter)
 						WaitForSingleObject(hMutex, INFINITE);
 						g_grabResults[i] = GRAB_STATUS_SUCCESSED;
 						ReleaseMutex(hMutex);
-						//string fileName = "d:/grabs/trigger_" + commonfunction_c::BaseFunctions::Int2Str(i) + "_" + commonfunction_c::BaseFunctions::Int2Str(x) + ".jpg";
-						//result.WriteImage("jpg", 0, fileName.c_str());
-
-						//x++;
 					} 
 					else {
 						l.Log("cam:" + BaseFunctions::Int2Str(i) + " , grab failed");
