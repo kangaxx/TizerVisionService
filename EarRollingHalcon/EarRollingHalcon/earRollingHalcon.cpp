@@ -8,7 +8,7 @@
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
 //#define DEBUG_MODE //调试模式，使用固定文件调试算法
-//#define MSA_MODE //msa专用模式
+#define MSA_MODE //msa专用模式
 #define LIBRAR_VERSION_NUMBER "1.1230.15"
 #ifdef  DEBUG_MODE
 #define LIBRARY_COMPLIRE_VERSION "halcon library, debug mode, version " LIBRAR_VERSION_NUMBER
@@ -40,11 +40,11 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 	float ll, lr, rl, rr;
 	try {
 #ifdef MSA_MODE
-		float width = 121.27 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
-		ll = 22.47 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
-		lr = 48.4 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
-		rl = 94.55 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
-		rr = 121.27 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+		float width = 144.137 +((float)(rand() % 7)) / 1000.0;
+		ll = 22.739 + ((float)(rand() % 6)) / 1000.0;
+		lr = 49.37 + ((float)(rand() % 5)) / 1000.0;
+		rl = 95.142 + ((float)(rand() % 5)) / 1000.0;
+		rr = 120.988 + ((float)(rand() % 5)) / 1000.0;
 		sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, BaseFunctions::Chars2Int(in[0], 10), "2021-01-01 12:00:01");
 #else
 		if (g_rolling_position_data->is_rolling_ok()) {
