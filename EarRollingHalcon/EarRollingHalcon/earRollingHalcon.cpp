@@ -8,8 +8,8 @@
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
 //#define DEBUG_MODE //调试模式，使用固定文件调试算法
-#define MSA_MODE //msa专用模式
-#define LIBRAR_VERSION_NUMBER "1.1230.15"
+//#define MSA_MODE //msa专用模式
+#define LIBRAR_VERSION_NUMBER "1.20104.17"
 #ifdef  DEBUG_MODE
 #define LIBRARY_COMPLIRE_VERSION "halcon library, debug mode, version " LIBRAR_VERSION_NUMBER
 #else

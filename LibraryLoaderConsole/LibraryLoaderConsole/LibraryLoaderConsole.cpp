@@ -22,7 +22,7 @@
 
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
-#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.1230.14"
+#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20110.10"
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -101,7 +101,8 @@ unsigned long readRedisProc(void* lpParameter) {
 			auto value = redis.rpop(key);  
 			l.Log(value.value());
 			JsonHelper jh(value.value());
-			if (jh.search(WINDING_NG_RESULT_KEY).find(WINDING_NG_RESULT_ISNG))
+			cout << "is ng pos :" << jh.search(WINDING_NG_RESULT_KEY).find(WINDING_NG_RESULT_ISNG) << endl;
+			if (jh.search(WINDING_NG_RESULT_KEY).find(WINDING_NG_RESULT_ISNG) == 0)
 				switchTrigger485(1);
 		}
 		catch (char* err) {
@@ -120,6 +121,7 @@ public:
 	//读取算法动态链接库
 	void runHalconLib(int argc, char* in[], string image) {
 		Logger l("d:");
+		l.Log("Console program #runHalconLib start"); //test log
 		HINSTANCE hDllInst;
 
 		Redis redis = Redis("tcp://127.0.0.1:6379");
@@ -131,10 +133,14 @@ public:
 
 			return;
 		}
+		else {
+			l.Log("Measure program set to run by client user!"); // test log
+		}
 		StringView key = REDIS_LIST_CALIBRATION_KEY;
 		int calibration_line_top, calibration_line_bottom;
 		auto value = redis.rpop(key);
 		int param_num = 0;
+		l.Log("Calibarton line value readed!"); //test log
 		try {
 			JsonHelper jh(value.value());
 			calibration_line_top = BaseFunctions::Str2Int(jh.search(JSON_CALIBRATION_TOP_KEY), 0);
@@ -144,16 +150,21 @@ public:
 		catch (...) {
 			calibration_line_top = 0;
 			calibration_line_bottom = 0;
+			l.Log("Calibarton line value read error!"); //test log
 			param_num = 1;
 		}
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
 		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("halconLibrary", string("string"))).c_str()));
-		if (hDllInst == 0)
+		if (hDllInst == 0) {
+			l.Log("Halcon library load error!");
 			return;
+		}
 		halconFunc func = NULL;
 		func = (halconFunc)GetProcAddress(hDllInst, "halconAction");
-		if (func == 0)
+		if (func == 0) {
+			l.Log("Halcon function load error!");
 			return;
+		}
 		int burr_limit = 15;
 		int localImage = ch.findValue("localImage", 1);
 		char* source[8];
@@ -175,6 +186,7 @@ public:
 		char** out = new char* ();
 		*out = &buffer[0];
 		try {
+			l.Log("Console try to run halcon function!");
 			func(param_num, source, image.c_str(), out);
 			l.Log(string(*out));
 			lPush(REDIS_WRITE_KEY, string(*out));
@@ -394,6 +406,9 @@ int main()
 }
 
 void delegateFunction(char* msg) {
+	Logger l("d:");
+	l.Log("Delegate function start!"); //test log
+	l.Log(string(msg)); //test log
 	ll.lPush("to_test", msg);
 	JsonHelper jh;
 	jh.initial(string(msg));

@@ -10,7 +10,7 @@
 #include "ModbusThread.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.1230.15"
+#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.20110.10"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 
 #define SAVE_IMAGE_PREFIX "d:/grabs/trigger_concat_"
@@ -115,8 +115,8 @@ public:
 
 HImage cameraWorker(int argc, char* in[])
 {
+	Logger l("d:");
 	try {
-		Logger l("d:");
 		g_coreWidth = 143.77 + ((float)(rand() % 5)) / 100.0;
 		g_ll = 22.47 + ((float)(rand() % 5)) / 100.0;
 		g_lr = 48.4 + ((float)(rand() % 5)) / 100.0;
@@ -166,7 +166,7 @@ HImage cameraWorker(int argc, char* in[])
 			cameras[i].TriggerSelector.SetValue(TriggerSelector_FrameStart);
 			cameras[i].TriggerMode.SetValue(TriggerMode_On);
 			cameras[i].LineSelector.SetValue(LineSelector_Line1);
-			cameras[i].LineDebouncerTimeAbs.SetValue(20000);
+			//cameras[i].LineDebouncerTimeAbs.SetValue(20000);
 			cameras[i].LineMode.SetValue(LineMode_Input);
 			cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
 			cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
@@ -214,12 +214,13 @@ HImage cameraWorker(int argc, char* in[])
 
 
 		while (true) {
+			l.Log("Main thread start"); //test log
 			Sleep(200);
 			//先测试以下共享内存
-			WaitForSingleObject(hMutexHalconAnalyse, INFINITE);
+			WaitForSingleObject(hMutex, INFINITE);
 			int concatStatus = g_concatImageStatus;
 			g_concatImageStatus = CONCAT_IMAGE_NONE;
-			ReleaseMutex(hMutexHalconAnalyse);
+			ReleaseMutex(hMutex);
 			std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":%d,\"time\":\"%s\"}";
 			char message[2048];
 			float width = 142.0 + ((float)(rand() % 30)) / 10.0;
@@ -232,13 +233,13 @@ HImage cameraWorker(int argc, char* in[])
 			strcpy_s(g_message, message);
 			if (concatStatus == CONCAT_IMAGE_FAIL) {
 				if (g_halconFunction != nullptr) {
-					l.Log("Test log, #concat fail and call halcon");
+					l.Log("CONCAT_IMAGE_FAIL");
 					g_halconFunction(g_message);
 				}
 			}
 			else if (concatStatus == CONCAT_IMAGE_SUCCESS) {
 				if (g_halconFunction != nullptr) {
-					l.Log("Test log, #concat success and call halcon");
+					l.Log("CONCAT_IMAGE_SUCCESS");
 					g_halconFunction(g_message);
 				}
 			}
@@ -272,7 +273,7 @@ HImage cameraWorker(int argc, char* in[])
 			}
 			catch (std::exception const& e)
 			{
-				std::cerr << "Concat image error: " << e.what() << std::endl;
+				l.Log(e.what());
 				//ws.close(websocket::close_code::normal);
 				return HImage();
 			}
@@ -292,8 +293,7 @@ HImage cameraWorker(int argc, char* in[])
 	}
 	catch (const GenericException& e)
 	{
-		std::cerr << "Camera initial error: " << e.what() << std::endl;
-
+		l.Log(e.what());
 	}
 	catch (...) {
 		
@@ -525,9 +525,10 @@ unsigned long grabProc(void* lpParameter)
 
 						g_images[i] = result;
 						Sleep(10);
-						WaitForSingleObject(hMutex, INFINITE);
+						//WaitForSingleObject(hMutex, INFINITE); //debug by gxx 20220104,触发模式下可能会中途
 						g_grabResults[i] = GRAB_STATUS_SUCCESSED;
-						ReleaseMutex(hMutex);
+
+						//ReleaseMutex(hMutex);
 					} 
 					else {
 						l.Log("cam:" + BaseFunctions::Int2Str(i) + " , grab failed");
@@ -791,9 +792,6 @@ HImage imageConcat(time_t id)
 		GetGrayval(ho_ImageRight, hv_RightRows, hv_RightColumns, &hv_RightGrayval);
 		SetGrayval(ho_ImageConcat, hv_RightRows, hv_RightColumns + hv_adjustRightX, hv_RightGrayval);
 	}
-	WaitForSingleObject(hMutex, INFINITE);
-
-	ReleaseMutex(hMutex);
 	//HImage(ho_ImageConcat).WriteImage("jpg", 0, fileName.c_str());
 
 	delete[]images;
