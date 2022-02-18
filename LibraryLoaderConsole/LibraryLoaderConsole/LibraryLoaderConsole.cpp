@@ -22,7 +22,7 @@
 
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
-#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20110.10"
+#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20218.09"
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -36,10 +36,10 @@ using namespace fastdelegate;
 using namespace HalconCpp;
 using namespace sw::redis;
 class LibraryLoader;
- 
+
 void delegateFunction(char*);
-typedef void (*halconFunc)(int, char*[], const char*, char**);
-typedef HImage (*cameraWork)(int, char* []);
+typedef void (*halconFunc)(int, char* [], const char*, char**);
+typedef HImage(*cameraWork)(int, char* []);
 typedef bool (*calibrationWork)(int, char* []);
 typedef void (*callHalconFunc)(char*);
 typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [], HBYTE[]));
@@ -98,7 +98,7 @@ unsigned long readRedisProc(void* lpParameter) {
 	StringView key = REDIS_READ_KEY;
 	while (true) {
 		try {
-			auto value = redis.rpop(key);  
+			auto value = redis.rpop(key);
 			l.Log(value.value());
 			JsonHelper jh(value.value());
 			cout << "is ng pos :" << jh.search(WINDING_NG_RESULT_KEY).find(WINDING_NG_RESULT_ISNG) << endl;
@@ -136,23 +136,7 @@ public:
 		else {
 			l.Log("Measure program set to run by client user!"); // test log
 		}
-		StringView key = REDIS_LIST_CALIBRATION_KEY;
-		int calibration_line_top, calibration_line_bottom;
-		auto value = redis.rpop(key);
-		int param_num = 0;
-		l.Log("Calibarton line value readed!"); //test log
-		try {
-			JsonHelper jh(value.value());
-			calibration_line_top = BaseFunctions::Str2Int(jh.search(JSON_CALIBRATION_TOP_KEY), 0);
-			calibration_line_bottom = BaseFunctions::Str2Int(jh.search(JSON_CALIBRATION_BOTTOM_KEY), 1);
-			param_num = 3;
-		}
-		catch (...) {
-			calibration_line_top = 0;
-			calibration_line_bottom = 0;
-			l.Log("Calibarton line value read error!"); //test log
-			param_num = 1;
-		}
+		
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
 		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("halconLibrary", string("string"))).c_str()));
 		if (hDllInst == 0) {
@@ -174,9 +158,9 @@ public:
 		int height = 1080; // 同上
 		int polesWidth = 10;
 		source[0] = in[0]; //status
-		source[1] = (char*)(&calibration_line_top);
-		source[2] = (char*)(&calibration_line_bottom);
-		source[3] = NULL; 
+		source[1] = (char*)(&calibration_line_top_);
+		source[2] = (char*)(&calibration_line_bottom_);
+		source[3] = NULL;
 		source[4] = NULL;
 		source[5] = NULL;
 		source[6] = NULL;
@@ -187,7 +171,7 @@ public:
 		*out = &buffer[0];
 		try {
 			l.Log("Console try to run halcon function!");
-			func(param_num, source, image.c_str(), out);
+			func(param_num_, source, image.c_str(), out);
 			l.Log(string(*out));
 			lPush(REDIS_WRITE_KEY, string(*out));
 		}
@@ -205,10 +189,32 @@ public:
 		HINSTANCE hDllInst;
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
 		Logger l("d:");
+		StringView key = REDIS_LIST_CALIBRATION_KEY;
+		Redis redis = Redis("tcp://127.0.0.1:6379");
+		auto value = redis.rpop(key);
+		int param_num = 0;
+		try {
+			JsonHelper jh(value.value());
+			calibration_line_top_ = BaseFunctions::Str2Int(jh.search(JSON_CALIBRATION_TOP_KEY), 0);
+			calibration_line_bottom_ = BaseFunctions::Str2Int(jh.search(JSON_CALIBRATION_BOTTOM_KEY), 1);
+			camera_width_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_WIDTH), 1920);
+			camera_height_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_WIDTH), 1080);
+			package_delay_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_PACKAGE_DELAY), 1000);
+			package_size_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_PACKAGE_SIZE), 7000);
+			exposure_time_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_EXPOSURE_TIME), 3000);
+			center_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_CENTER), 3000);
+			param_num_ = 3;
+		}
+		catch (...) {
+			calibration_line_top_ = 0;
+			calibration_line_bottom_ = 0;
+			l.Log("Calibarton line value read error!"); //test log
+			param_num_ = 1;
+		}
 		l.Log(ch.findValue("cameraLibrary", string("string")));
 		hDllInst = LoadLibrary(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str());
 		if (hDllInst == 0) {
-			throw "Load camera library failed!" ;
+			throw "Load camera library failed!";
 		}
 		cameraWork cameraWorkFunc = NULL;
 		cameraWorkFunc = (cameraWork)GetProcAddress(hDllInst, "cameraWorker");
@@ -227,14 +233,27 @@ public:
 		string cameraLeftName = ch.findValue("cameraLeftName", string("string"));
 		string cameraMidName = ch.findValue("cameraMidName", string("string"));
 		string cameraRightName = ch.findValue("cameraRightName", string("string"));
-		char* in[5];
-		char leftCamera[50], midCamera[50], rightCamera[50];
+		char* in[9];
+		char leftCamera[50], midCamera[50], rightCamera[50], camera_width[10], camera_height[10], package_delay[10], 
+			package_size[10], exposure_time[10], center[10];
 		strcpy_s(leftCamera, cameraLeftName.c_str());
 		strcpy_s(midCamera, cameraMidName.c_str());
 		strcpy_s(rightCamera, cameraRightName.c_str());
+		commonfunction_c::BaseFunctions::Int2Chars(camera_width_, camera_width);
+		commonfunction_c::BaseFunctions::Int2Chars(camera_height_, camera_height);
+		commonfunction_c::BaseFunctions::Int2Chars(package_delay_, package_delay);
+		commonfunction_c::BaseFunctions::Int2Chars(package_size_, package_size);
+		commonfunction_c::BaseFunctions::Int2Chars(center_, center);
+		commonfunction_c::BaseFunctions::Int2Chars(exposure_time_, exposure_time);
 		in[0] = &leftCamera[0];
 		in[1] = &midCamera[0];
 		in[2] = &rightCamera[0];
+		in[3] = &camera_width[0];
+		in[4] = &camera_height[0];
+		in[5] = &package_delay[0];
+		in[6] = &package_size[0];
+		in[7] = &center[0];
+		in[8] = &exposure_time[0];
 		HImage image = cameraWorkFunc(0, in);
 		return image;
 	}
@@ -329,6 +348,9 @@ public:
 		auto value = redis.rpop("list");
 		return value.value();
 	}
+private:
+	int calibration_line_top_, calibration_line_bottom_, param_num_;
+	int camera_width_, camera_height_, package_size_, package_delay_, center_, exposure_time_;
 };
 
 static LibraryLoader ll;
@@ -350,7 +372,7 @@ int main()
 		std::cout << "selected index :" << index << std::endl;
 		if (index == 0) return 0;
 
-		
+
 		HImage image;
 		try {
 			switch (index)

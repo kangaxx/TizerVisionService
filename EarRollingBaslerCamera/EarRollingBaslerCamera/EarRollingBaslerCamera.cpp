@@ -10,7 +10,7 @@
 #include "ModbusThread.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.20110.10"
+#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.20218.09"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 
 #define SAVE_IMAGE_PREFIX "d:/grabs/trigger_concat_"
@@ -141,7 +141,12 @@ HImage cameraWorker(int argc, char* in[])
 		l.Log("camera num:" + commonfunction_c::BaseFunctions::Int2Str(g_cameraNum));
 		l.Log(in[0]);
 		// Create and attach all Pylon Devices.
-
+		int width = BaseFunctions::Chars2Int(in[3]);
+		int height = BaseFunctions::Chars2Int(in[4]);
+		int delay = BaseFunctions::Chars2Int(in[5]);
+		int size = BaseFunctions::Chars2Int(in[6]);
+		int center = BaseFunctions::Chars2Int(in[7]);
+		int exposure_time = BaseFunctions::Chars2Int(in[8]);
 		for (size_t i = 0; i < g_cameraNum; ++i)
 		{
 			g_grabResults[i] = GRAB_STATUS_NONE;
@@ -170,13 +175,17 @@ HImage cameraWorker(int argc, char* in[])
 			cameras[i].LineMode.SetValue(LineMode_Input);
 			cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
 			cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
-
-#ifdef DEBUG_MODE
-			cameras[i].GevStreamChannelSelector.SetValue(GevStreamChannelSelector_StreamChannel0);
-			cameras[i].GevSCPSPacketSize.SetValue(7000);
-			cameras[i].GevSCPD.SetValue(1000);
-#endif // DEBUG_MODE
-
+			if (width > 0 && height > 0) {
+				cameras[i].Width.SetValue(width);
+				cameras[i].Height.SetValue(height);
+			}
+			if (delay > 0 && size > 0) {
+				cameras[i].GevStreamChannelSelector.SetValue(GevStreamChannelSelector_StreamChannel0);
+				cameras[i].GevSCPSPacketSize.SetValue(size);
+				cameras[i].GevSCPD.SetValue(delay);
+			}
+			if (exposure_time > 0)
+				cameras[i].ExposureTimeAbs.SetValue(exposure_time);
 		}
 		
 		int* pthread_num = new int[g_cameraNum];
@@ -572,7 +581,6 @@ unsigned long ImageConcatProc(void* lpParameter)
 		for (int i = 0; i < g_cameraNum; ++i) {
 			if (g_grabResults[i] == GRAB_STATUS_FAILED) {
 				WaitForSingleObject(hMutex, INFINITE);
-
 				g_concatImageStatus = CONCAT_IMAGE_FAIL;
 				ReleaseMutex(hMutex);
 				doImageConcat = GRAB_STATUS_FAILED;
