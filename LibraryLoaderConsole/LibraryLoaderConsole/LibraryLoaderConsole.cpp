@@ -300,13 +300,13 @@ public:
 			throw "Calibration library failed!";
 		}
 		calibrationWork calibrationWorkFunc = NULL;
-		calibrationWorkFunc = (calibrationWork)GetProcAddress(hDllInst, "calibrationWorker");
+ 		calibrationWorkFunc = (calibrationWork)GetProcAddress(hDllInst, "calibrationWorker");
 		if (calibrationWorkFunc == 0) {
 			FreeLibrary(hDllInst);
 			throw "Load camera library function failed!";
 		}
 		char* in[5];
-		Logger l;
+ 		Logger l;
 		if (!calibrationWorkFunc(0, in))
 			l.Log("Calibration failed!");
 		else

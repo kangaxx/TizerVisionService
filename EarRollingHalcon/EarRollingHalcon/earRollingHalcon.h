@@ -27,9 +27,9 @@ public:
 	RollingPostionData(int top, int bottom, string name) {
 		log_ = new Logger();
 		set_manual_top(top);
-		set_manual_bottom(top);
+		set_manual_bottom(bottom);
 		initial_calibration_lines();
-		load_image(name);
+		load_image(name); 
 		set_battery_width(measure_battery_width(ho_image_));
 		update_battery_status(check_battery_ear(ho_image_));
 	}
@@ -68,6 +68,6 @@ private:
 	float getRollingEdgeVertical(HImage image, eWidthLocateDirect direct, int xMin, int xMax, int yMin, int yMax); //横向极值点
 	bool check_battery_ear(HImage& image); //极耳位置判定，没问题返回true，否则返回false
 	void update_battery_status(bool value) { is_rolling_ok_ = (is_rolling_ok_ && value); }
-	void getRollingROI(int min_bar_num, int max_bar_num, float& min_x, float& max_x, float& min_y, float& max_y);
+	void getRollingROI(int min_line_num, int max_line_num, float& min_x, float& max_x, float& min_y, float& max_y);
 };
 RollingPostionData* g_rolling_position_data;

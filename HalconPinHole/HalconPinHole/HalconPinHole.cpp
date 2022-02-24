@@ -1,20 +1,13 @@
-﻿// HikRobotCameraUtils.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
+﻿// HalconPinHole.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
 //
 
 #include <iostream>
-#include "Version.h"
-#define _VERTOSTRING(arg) #arg
-#define VERTOSTRING(arg) _VERTOSTRING(arg)
-#define VER_MAIN    1
-#define VER_SUB     0
-#define VER_FULL    VER_MAIN.VER_SUB.VER_BUILD
-#define VER_FULL_RC VER_MAIN,VER_SUB,VER_BUILD
-#define STR_VER_FULL    _T(VERTOSTRING(VER_FULL))
-#define STR_VER_FULL_RC VERTOSTRING(VER_FULL_RC)
 
+#include "PinHoleDetect.h"
 int main()
 {
-    std::cout << "Hello World!\nversion : " << STR_VER_FULL_RC;
+    PinHoleDetect phd(1, 1, 1);
+    std::cout << "Hello World!\n";
 }
 
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单

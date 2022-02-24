@@ -9,12 +9,12 @@
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
 //#define DEBUG_MODE //调试模式，使用固定文件调试算法
 //#define MSA_MODE //msa专用模式
-#define LIBRAR_VERSION_NUMBER "1.20104.17"
+#define LIBRAR_VERSION_NUMBER "1.20222.16"
 #ifdef  DEBUG_MODE
 #define LIBRARY_COMPLIRE_VERSION "halcon library, debug mode, version " LIBRAR_VERSION_NUMBER
 #else
 #ifdef MSA_MODE
-#define LIBRARY_COMPLIRE_VERSION "halcon library, m version " LIBRAR_VERSION_NUMBER
+#define LIBRARY_COMPLIRE_VERSION "halcon library, version m " LIBRAR_VERSION_NUMBER
 #else
 #define LIBRARY_COMPLIRE_VERSION "halcon library, version " LIBRAR_VERSION_NUMBER
 #endif
@@ -32,7 +32,7 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 	if (argc > 2)
 		g_rolling_position_data = new RollingPostionData(BaseFunctions::Chars2Int(in[1]), BaseFunctions::Chars2Int(in[2]), string(name));
 	else
-		g_rolling_position_data = new RollingPostionData(-1, -1, string(name));
+ 		g_rolling_position_data = new RollingPostionData(-1, -1, string(name));
 	char message[2048];
 	srand(time(NULL));
 	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":%d,\"time\":\"%s\"}";
@@ -144,10 +144,10 @@ float RollingPostionData::measure_battery_width(HImage& image)
 {
 	try {
 		float min_x, max_x, min_y, max_y;
-		getRollingROI(ROI_LEFT_START_BAR_NUM, ROI_LEFT_END_BAR_NUM, min_x, max_x, min_y, max_y);
+		getRollingROI(ROI_LEFT_START_LINE_NUM, ROI_LEFT_END_LINE_NUM, min_x, max_x, min_y, max_y);
 		left_edge_x_ = getRollingEdgeVertical(image, WLD_LEFT, min_x, max_x, min_y, max_y);
-		int total_bar_num = this->calibration_lines_points_.size() / 8;
-		getRollingROI(total_bar_num + ROI_RIGHT_START_BAR_NUM, total_bar_num + ROI_RIGHT_END_BAR_NUM, min_x, max_x, min_y, max_y);
+		int total_line_num = this->calibration_lines_points_.size() / 4;
+		getRollingROI(total_line_num + ROI_RIGHT_START_LINE_NUM, total_line_num + ROI_RIGHT_END_LINE_NUM, min_x, max_x, min_y, max_y);
 		right_edge_x_ = getRollingEdgeVertical(image, WLD_RIGHT, min_x, max_x, min_y, max_y);
 		return float(right_edge_x_ - left_edge_x_);
 	}
@@ -341,22 +341,22 @@ bool RollingPostionData::check_battery_ear(HImage& image)
 	}
 }
 
-void RollingPostionData::getRollingROI(int min_bar_num, int max_bar_num, float& min_x, float& max_x, float& min_y, float& max_y)
+void RollingPostionData::getRollingROI(int min_line_num, int max_line_num, float& min_x, float& max_x, float& min_y, float& max_y)
 {
-	int min_bar_idx = min_bar_num * 8;
-	int max_bar_idx = max_bar_num * 8;
-	int min_bar_idx_next = min_bar_idx + 2;
-	int max_bar_idx_next = max_bar_idx + 2;
-	float top_min_x = calibration_lines_points_[min_bar_idx];
-	float bottom_min_x = calibration_lines_points_[min_bar_idx_next];
+	int min_line_idx = min_line_num * 4;
+	int max_line_idx = max_line_num * 4;
+	int min_line_idx_next = min_line_idx + 2;
+	int max_line_idx_next = max_line_idx + 2;
+	float top_min_x = calibration_lines_points_[min_line_idx];
+	float bottom_min_x = calibration_lines_points_[min_line_idx_next];
 	min_x = fminf(top_min_x, bottom_min_x);
-	float top_max_x = calibration_lines_points_[max_bar_idx];
-	float bottom_max_x = calibration_lines_points_[max_bar_idx_next];
+	float top_max_x = calibration_lines_points_[max_line_idx];
+	float bottom_max_x = calibration_lines_points_[max_line_idx_next];
 	max_x = fmaxf(top_max_x, bottom_max_x);
-	int min_bar_idx_y = min_bar_idx + 1;
-	int max_bar_idx_y = min_bar_idx + 3;
-	min_y = calibration_lines_points_[min_bar_idx_y];
-	max_y = calibration_lines_points_[max_bar_idx_y];
+	int min_line_idx_y = min_line_idx + 1;
+	int max_line_idx_y = min_line_idx + 3;
+	min_y = calibration_lines_points_[min_line_idx_y];
+	max_y = calibration_lines_points_[max_line_idx_y];
 	return;
 }
 
