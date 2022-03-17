@@ -26,10 +26,10 @@
     <ClInclude Include="..\..\..\hds\common.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="SerialPort.h">
+    <ClInclude Include="..\..\..\hds\JsonHelper.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\hds\JsonHelper.h">
+    <ClInclude Include="ModBus\config.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

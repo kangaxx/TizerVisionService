@@ -2,13 +2,27 @@
 //
 
 #include <iostream>
-
+#define DEBUG_MODE
 #include "PinHoleDetect.h"
+#include "PinHoleResult.h"
+#ifdef DEBUG_MODE
 int main()
 {
-    PinHoleDetect phd(1, 1, 1);
-    std::cout << "Hello World!\n";
+    PinHoleDetect phd(1);
+    HImage g_image;
+    HalconCpp::ReadImage(&g_image, "d:/images/pin_hole_001.jpg");
+    PinHoleResult result;
+    phd.do_check(g_image, 1, 1, 1, &result);
+    std::cout << result.get_hole_num();
+    for (int i = 0; i < result.get_hole_num(); ++i) {
+        result.get_holes_list().at(i).get_image().WriteImage("jpg", 0, "d:/hole.jpg");
+        cout << "hole[" << i << "] area : " << result.get_holes_list().at(i).get_area() << endl 
+            << "x :" << result.get_holes_list().at(i).get_x() << " , y : " << result.get_holes_list().at(i).get_y() << endl;
+    }
 }
+#endif // DEBUG
+
+
 
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
 // 调试程序: F5 或调试 >“开始调试”菜单

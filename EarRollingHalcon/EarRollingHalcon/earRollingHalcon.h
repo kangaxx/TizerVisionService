@@ -38,6 +38,13 @@ public:
 		delete log_;
 	}
 	int get_calibration_line_num() { return calibration_line_num_; }
+	float get_calibration_line_num_float() {
+		if (calibration_line_num_ > 99999)
+			return float(calibration_line_num_) / 100.00;
+		else
+			return float(calibration_line_num_);
+	}
+
 	void set_calibration_line_num(int value) { calibration_line_num_ = value; }
 	vector<float> get_calibration_lines_points() { return calibration_lines_points_; }
 	float get_battery_width() { return battery_width_; }

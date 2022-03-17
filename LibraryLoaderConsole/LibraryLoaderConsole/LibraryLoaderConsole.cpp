@@ -17,12 +17,13 @@
 #include "../../../hds/Logger.h"
 #include "../../../hds/configHelper.h"
 #include "../../../hds/JsonHelper.h"
-
 #include "SerialPort.h"
-
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
-#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20218.09"
+
+
+
+#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20311.09"
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -45,13 +46,14 @@ typedef void (*callHalconFunc)(char*);
 typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [], HBYTE[]));
 typedef void (*setHalconFunction)(callHalconFunc);
 typedef void (*call_image_concat)();
-
+typedef bool (*trigger_complete)(int);
 using namespace commonfunction_c;
 static int index;
 
 //如果电芯不合格，需要触发485继电器来剔除，下面的功能就是触发485
 void switchTrigger485(int port)
 {
+	/*com口继电器， 暂时不用了，改用modbus网线版本
 	CSerialPort sp;
 	TCHAR szPort[MAX_PATH];
 	_stprintf_s(szPort, MAX_PATH, _T("COM%d"), port);
@@ -85,6 +87,27 @@ void switchTrigger485(int port)
 	else
 		std::cout << "sp is close" << std::endl;
 	sp.Close();
+	*/
+
+	HINSTANCE hDllInst;
+
+	configHelper ch("c:\\tizer\\config.ini", CT_JSON);
+	hDllInst = LoadLibrary(LPCTSTR(L"ModBusLibrary"));
+	if (hDllInst == 0) {
+		throw "Calibration library failed!";
+	}
+	trigger_complete trigger_complete_function = NULL;
+	trigger_complete_function = (trigger_complete)GetProcAddress(hDllInst, "trigger_complete");
+	if (trigger_complete_function == 0) {
+		FreeLibrary(hDllInst);
+		throw "Load camera library function failed!";
+	}
+	char* in[5];
+	Logger l;
+	if (!trigger_complete_function(port))
+		l.Log("Electry relay trigger failed!");
+	else
+		l.Log("Electry relay trigger successed!");
 	return;
 }
 
@@ -103,7 +126,7 @@ unsigned long readRedisProc(void* lpParameter) {
 			JsonHelper jh(value.value());
 			cout << "is ng pos :" << jh.search(WINDING_NG_RESULT_KEY).find(WINDING_NG_RESULT_ISNG) << endl;
 			if (jh.search(WINDING_NG_RESULT_KEY).find(WINDING_NG_RESULT_ISNG) == 0)
-				switchTrigger485(1);
+				switchTrigger485(ELECTRIC_RELAY_COM_NUM);
 		}
 		catch (char* err) {
 			l.Log(err);
@@ -192,6 +215,7 @@ public:
 		StringView key = REDIS_LIST_CALIBRATION_KEY;
 		Redis redis = Redis("tcp://127.0.0.1:6379");
 		auto value = redis.rpop(key);
+		std::cout << value.value() << std::endl;
 		int param_num = 0;
 		try {
 			JsonHelper jh(value.value());

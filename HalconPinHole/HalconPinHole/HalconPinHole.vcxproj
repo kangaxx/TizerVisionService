@@ -148,10 +148,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="HalconPinHole.cpp" />
+    <ClCompile Include="HolesInfo.cpp" />
     <ClCompile Include="PinHoleDetect.cpp" />
+    <ClCompile Include="PinHoleResult.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="HolesInfo.h" />
     <ClInclude Include="PinHoleDetect.h" />
+    <ClInclude Include="PinHoleResult.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

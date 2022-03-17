@@ -9,7 +9,7 @@
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
 //#define DEBUG_MODE //调试模式，使用固定文件调试算法
 //#define MSA_MODE //msa专用模式
-#define LIBRAR_VERSION_NUMBER "1.20222.16"
+#define LIBRAR_VERSION_NUMBER "1.20302.23"
 #ifdef  DEBUG_MODE
 #define LIBRARY_COMPLIRE_VERSION "halcon library, debug mode, version " LIBRAR_VERSION_NUMBER
 #else
@@ -125,7 +125,7 @@ float RollingPostionData::get_distance_left(float x, float y)
 float RollingPostionData::get_distance_right(float x, float y)
 {
 	int total_line_num = calibration_lines_points_.size() / 4;
-	return get_distance_left(x, y) + calibration_line_num_ - float(total_line_num);
+	return get_distance_left(x, y) + get_calibration_line_num_float() - float(total_line_num);
 }
 
 void RollingPostionData::load_image(string name)
