@@ -10,11 +10,11 @@
 #include "ModbusThread.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.20218.09"
+#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.20328.10"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 
 #define SAVE_IMAGE_PREFIX "d:/grabs/trigger_concat_"
-#define MODE_DEBUG
+//#define MODE_DEBUG
 //#define CAMERA_ARRAY_MODE
 void handle_message(const std::string& message)
 {
@@ -60,6 +60,7 @@ static HANDLE hMutex = NULL;//互斥量
 static HANDLE hMutexHalconAnalyse = NULL; //算法互斥量
 static float g_coreWidth, g_ll, g_lr, g_rl, g_rr;
 static char g_message[1024];
+static time_t g_grabTimeStart; //用以计算拍摄的起始时间
 //Enumeration used for distinguishing different events.
 enum MyEvents
 {
@@ -117,16 +118,29 @@ HImage cameraWorker(int argc, char* in[])
 {
 	Logger l("d:");
 	try {
-		g_coreWidth = 143.77 + ((float)(rand() % 5)) / 100.0;
-		g_ll = 22.47 + ((float)(rand() % 5)) / 100.0;
-		g_lr = 48.4 + ((float)(rand() % 5)) / 100.0;
-		g_rl = 94.55 + ((float)(rand() % 5)) / 100.0;
-		g_rr = 121.27 + ((float)(rand() % 5)) / 100.0;
+		l.Log(LIBRARY_COMPLIRE_VERSION);
+		int mode = BaseFunctions::Chars2Int(in[0]);
+		if (mode == STANDARD_CAMERA_MODE)
+			return standard_mode_run(argc, in);
+		else if (mode == MSA_NO_TRIGGER_CAMERA_MODE)
+			return msa_no_trigger_mode_run(argc, in);
+		else //应该不至于吧
+			l.Log("ERROR, mode invalid!");
+		return HImage();
+	} 
+	catch (...) {
+		return HImage();
+	}
+}
+ 
+HImage standard_mode_run(int argc, char* in[])
+{
+	Logger l("d:");
+	try {
 		l.Log(LIBRARY_COMPLIRE_VERSION);
 		//string grabed_image_path = BaseFunctions::combineFilePath(BaseFunctions::ws2s(BaseFunctions::GetWorkPath()), IMAGE_GRABED_FOLDER); //暂时先不要挪到工作目录内，后续版本改进
 		BaseFunctions::createDirectoryW(BaseFunctions::s2ws(string(IMAGE_GRABED_PATH)));
 		assert(BaseFunctions::isFolderExist(IMAGE_GRABED_PATH));
-
 		//创建跨模块内存
 		// Before using any pylon methods, the pylon runtime must be initialized.
 		PylonInitialize();
@@ -139,14 +153,14 @@ HImage cameraWorker(int argc, char* in[])
 			l.Log("Error: No GigE transport layer installed.");
 		g_cameraNum = devices.size();
 		l.Log("camera num:" + commonfunction_c::BaseFunctions::Int2Str(g_cameraNum));
-		l.Log(in[0]);
+		int mode = BaseFunctions::Chars2Int(in[0]);
 		// Create and attach all Pylon Devices.
-		int width = BaseFunctions::Chars2Int(in[3]);
-		int height = BaseFunctions::Chars2Int(in[4]);
-		int delay = BaseFunctions::Chars2Int(in[5]);
-		int size = BaseFunctions::Chars2Int(in[6]);
-		int center = BaseFunctions::Chars2Int(in[7]);
-		int exposure_time = BaseFunctions::Chars2Int(in[8]);
+		int width = BaseFunctions::Chars2Int(in[4]);
+		int height = BaseFunctions::Chars2Int(in[5]);
+		int delay = BaseFunctions::Chars2Int(in[6]);
+		int size = BaseFunctions::Chars2Int(in[7]);
+		int center = BaseFunctions::Chars2Int(in[8]);
+		int exposure_time = BaseFunctions::Chars2Int(in[9]);
 		for (size_t i = 0; i < g_cameraNum; ++i)
 		{
 			g_grabResults[i] = GRAB_STATUS_NONE;
@@ -154,15 +168,15 @@ HImage cameraWorker(int argc, char* in[])
 			String_t cameraName = cameras[i].GetDeviceInfo().GetFriendlyName();
 			l.Log("camera id : " + BaseFunctions::Int2Str(i) + " , Name is : " + cameraName.c_str());
 			//string _sn = cameras[i].GetDeviceInfo().GetSerialNumber();
-			if (cameraName == in[0]) {
+			if (cameraName == in[1]) {
 				g_concatLocation[0] = i;
 				l.Log("left camera id : " + BaseFunctions::Int2Str(i));
 			}
-			else if (cameraName == in[1] && g_cameraNum > 1) {
+			else if (cameraName == in[2] && g_cameraNum > 1) {
 				g_concatLocation[1] = i;
 				l.Log("mid camera id : " + BaseFunctions::Int2Str(i));
 			}
-			else if (cameraName == in[2] && g_cameraNum > 2) {
+			else if (cameraName == in[3] && g_cameraNum > 2) {
 				g_concatLocation[2] = i;
 				l.Log("right camera id : " + BaseFunctions::Int2Str(i));
 			}
@@ -230,7 +244,7 @@ HImage cameraWorker(int argc, char* in[])
 			int concatStatus = g_concatImageStatus;
 			g_concatImageStatus = CONCAT_IMAGE_NONE;
 			ReleaseMutex(hMutex);
-			std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":%d,\"time\":\"%s\"}";
+			std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":%d,\"time\":\"%s\",\"mode\":%d}";
 			char message[2048];
 			float width = 142.0 + ((float)(rand() % 30)) / 10.0;
 			float ll = 16 + ((float)(rand() % 17)) / 10.0;
@@ -238,7 +252,7 @@ HImage cameraWorker(int argc, char* in[])
 			float rl = 76 + ((float)(rand() % 17)) / 10.0;
 			float rr = 125 + ((float)(rand() % 17)) / 10.0;
 			string imageStr = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::time2str(g_id);
-			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, concatStatus, "2021-01-01 12:00:01");
+			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, concatStatus, "2021-01-01 12:00:01", mode);
 			strcpy_s(g_message, message);
 			if (concatStatus == CONCAT_IMAGE_FAIL) {
 				if (g_halconFunction != nullptr) {
@@ -308,6 +322,176 @@ HImage cameraWorker(int argc, char* in[])
 		
 	};
 }
+
+HImage msa_no_trigger_mode_run(int argc, char* in[])
+{
+	Logger l("d:");
+	try {
+		l.Log(LIBRARY_COMPLIRE_VERSION);
+		//string grabed_image_path = BaseFunctions::combineFilePath(BaseFunctions::ws2s(BaseFunctions::GetWorkPath()), IMAGE_GRABED_FOLDER); //暂时先不要挪到工作目录内，后续版本改进
+		BaseFunctions::createDirectoryW(BaseFunctions::s2ws(string(IMAGE_GRABED_PATH)));
+		assert(BaseFunctions::isFolderExist(IMAGE_GRABED_PATH));
+		//创建跨模块内存
+		// Before using any pylon methods, the pylon runtime must be initialized.
+		PylonInitialize();
+
+		CTlFactory& tlFactory = CTlFactory::GetInstance();
+		IGigETransportLayer* pTl = dynamic_cast<IGigETransportLayer*>(tlFactory.CreateTl(Pylon::BaslerGigEDeviceClass));
+		DeviceInfoList_t devices;
+		pTl->EnumerateAllDevices(devices);
+		if (pTl == NULL)
+			l.Log("Error: No GigE transport layer installed.");
+		g_cameraNum = devices.size();
+		l.Log("camera num:" + commonfunction_c::BaseFunctions::Int2Str(g_cameraNum));
+		int mode = BaseFunctions::Chars2Int(in[0]);
+		// Create and attach all Pylon Devices.
+
+		for (size_t i = 0; i < g_cameraNum; ++i)
+		{
+			g_grabResults[i] = GRAB_STATUS_NONE;
+			cameras[i].Attach(tlFactory.CreateDevice(devices[i]));
+			String_t cameraName = cameras[i].GetDeviceInfo().GetFriendlyName();
+			l.Log("camera id : " + BaseFunctions::Int2Str(i) + " , Name is : " + cameraName.c_str());
+			//string _sn = cameras[i].GetDeviceInfo().GetSerialNumber();
+			if (cameraName == in[1]) {
+				g_concatLocation[0] = i;
+				l.Log("left camera id : " + BaseFunctions::Int2Str(i));
+			}
+			else if (cameraName == in[2] && g_cameraNum > 1) {
+				g_concatLocation[1] = i;
+				l.Log("mid camera id : " + BaseFunctions::Int2Str(i));
+			}
+			else if (cameraName == in[3] && g_cameraNum > 2) {
+				g_concatLocation[2] = i;
+				l.Log("right camera id : " + BaseFunctions::Int2Str(i));
+			}
+			cameras[i].MaxNumBuffer = 5;
+			cameras[i].Open();
+			l.Log("camera [" + commonfunction_c::BaseFunctions::Int2Str(i) + "] opened!");
+		}
+
+		int* pthread_num = new int[g_cameraNum];
+		g_grabTimeStart = time(NULL);
+		for (size_t i = 0; i < g_cameraNum; ++i) {
+			pthread_num[i] = i;
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&intervalGrabProc, (void*)&pthread_num[i], 0, 0);
+		}
+		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&ImageConcatProc, (void*)&g_cameraNum, 0, 0);
+#ifdef GRAB_LOOP_TIME
+		for (int i = 0; i < GRAB_LOOP_TIME; ++i) {
+			//不成功拼图就不减少循环次数，成功就减少循环次数，有可能只循环一次
+			WaitForSingleObject(hMutex, INFINITE);
+			if (g_concatImageStatus == CONCAT_IMAGE_NONE || g_concatImageStatus == CONCAT_IMAGE_FAIL) {
+				i--;
+			}
+			ReleaseMutex(hMutex);
+		}
+		WaitForSingleObject(hMutex, INFINITE);
+		g_stopThread = true;
+		ReleaseMutex(hMutex);
+		while (true) {
+			WaitForSingleObject(hMutex, INFINITE);
+			//没有活跃子线程时主线程可以关闭
+			if (g_activeThreadNum <= 0) {
+				//在这里需要释放一次
+				ReleaseMutex(hMutex);
+				break;
+			}
+			else {
+				ReleaseMutex(hMutex);
+			}
+
+		}
+#else
+
+
+		while (true) {
+			l.Log("Main thread start"); //test log
+			Sleep(200);
+			//先测试以下共享内存
+			WaitForSingleObject(hMutex, INFINITE);
+			int concatStatus = g_concatImageStatus;
+			g_concatImageStatus = CONCAT_IMAGE_NONE;
+			ReleaseMutex(hMutex);
+			std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":%d,\"time\":\"%s\",\"mode\":%d}";
+			char message[2048];
+			float width = 142.0 + ((float)(rand() % 30)) / 10.0;
+			float ll = 16 + ((float)(rand() % 17)) / 10.0;
+			float lr = 49 + ((float)(rand() % 17)) / 10.0;
+			float rl = 76 + ((float)(rand() % 17)) / 10.0;
+			float rr = 125 + ((float)(rand() % 17)) / 10.0;
+			string imageStr = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::time2str(g_id);
+			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, concatStatus, "2021-01-01 12:00:01", mode);
+			strcpy_s(g_message, message);
+			if (concatStatus == CONCAT_IMAGE_FAIL) {
+				if (g_halconFunction != nullptr) {
+					l.Log("CONCAT_IMAGE_FAIL");
+					g_halconFunction(g_message);
+				}
+			}
+			else if (concatStatus == CONCAT_IMAGE_SUCCESS) {
+				if (g_halconFunction != nullptr) {
+					l.Log("CONCAT_IMAGE_SUCCESS");
+					g_halconFunction(g_message);
+				}
+			}
+			//照相抓图失败，basler相机报错
+			else {
+				Sleep(20);
+				continue;
+			}
+			// 发送到websocket
+			try
+			{
+				char result;
+				// Send the message
+				// This buffer will hold the incoming message
+				beast::flat_buffer buffer;
+				// Read a message into our buffer
+				/*
+				while (ws.read(buffer) <= 0) {
+					std::string out;
+					out = beast::buffers_to_string(buffer.cdata());
+					if (out.find(POLL_ROOL_RESULT_NG) >= 0)
+						result = POLL_ROOL_RESULT_NG;
+					else if (out.find(POLL_ROOL_RESULT_OK) >= 0)
+						result = POLL_ROOL_RESULT_OK;
+					else if (out.find(POLL_ROOL_RESULT_CAMERA_ERROR) >= 0)
+						result = POLL_ROOL_RESULT_CAMERA_ERROR;
+				}
+				*/
+				// Close the WebSocket connection
+				//ws.close(websocket::close_code::normal);
+			}
+			catch (std::exception const& e)
+			{
+				l.Log(e.what());
+				//ws.close(websocket::close_code::normal);
+				return HImage();
+			}
+		} //while(true)
+#endif // GRAB_LOOP_TIME
+		delete[] pthread_num;
+
+		WaitForSingleObject(hMutex, INFINITE);
+		if (g_concatImageStatus == CONCAT_IMAGE_SUCCESS) {
+			ReleaseMutex(hMutex);
+			return g_concatImage;
+		}
+		else {
+			ReleaseMutex(hMutex);
+			return HImage();
+		}
+}
+	catch (const GenericException& e)
+	{
+		l.Log(e.what());
+	}
+	catch (...) {
+
+	};
+}
+
 #else
 HImage cameraWorker(int argc, char* in[])
 {
@@ -559,6 +743,99 @@ unsigned long grabProc(void* lpParameter)
 	return 0;
 }
 
+unsigned long intervalGrabProc(void* lpParameter)
+{
+	//WaitForSingleObject(hMutex, INFINITE);
+	//g_activeThreadNum++;
+	//ReleaseMutex(hMutex);
+
+	int i = *(int*)lpParameter;
+	bool isGrabbed = false;
+	Logger l("d:");
+	l.Log("grab id : " + BaseFunctions::Int2Str(i));
+	try {
+		//for (int x = 0; x < 5; x++){ //调式版，只跑几次免得锁死相机
+		//int x = 0;
+		int id = 0;
+
+		while (true) {
+
+
+			//printf("process %d , The pause used %f seconds. \n", i, difftime(now , g_grabTimeStart));
+			/* 需要提高拍摄速度时，需要把休止功能关掉*/
+			/*
+			Sleep(1000);
+			time_t now = time(NULL);
+			if ((int(difftime(now, g_grabTimeStart)) % 10) % 4 != 1) {
+				continue;
+			}
+			*/
+			WaitForSingleObject(hMutex, INFINITE);
+			if (g_grabResults[i] == GRAB_STATUS_SUCCESSED) {
+				ReleaseMutex(hMutex);
+				continue;
+			}
+			else {
+				ReleaseMutex(hMutex);
+			}
+			unsigned char* imgPtr;
+			//list cameras grab
+			cameras[i].StartGrabbing(1);
+
+			//l.Log("start grab");
+			while (cameras[i].IsGrabbing())
+			{
+				try {
+					CGrabResultPtr ptrGrabResult;
+					cameras[i].RetrieveResult(5000, ptrGrabResult, TimeoutHandling_ThrowException);
+
+					if (ptrGrabResult->GrabSucceeded())
+					{
+						l.Log("cam:" + BaseFunctions::Int2Str(i) + " , grab success");
+
+						const HBYTE* pImageBuffer;
+						pImageBuffer = (HBYTE*)ptrGrabResult->GetBuffer();
+						HObject ho_Image;
+						int w = 1920, h = 1080;
+						GenImage1(&ho_Image, "byte", w, h, (Hlong)pImageBuffer);
+						HImage result;
+						result = ho_Image;
+						//加锁，修改状态时避免被系统拼图线程更改状态（可能性不大）
+
+						g_images[i] = result;
+						Sleep(10);
+						WaitForSingleObject(hMutex, INFINITE);
+						int tempId = g_id;
+						g_grabResults[i] = GRAB_STATUS_SUCCESSED;
+						ReleaseMutex(hMutex);
+						//存图功能放在concat位置
+						//string fileName = "d:/grabs/trigger_" + commonfunction_c::BaseFunctions::Int2Str(g_id) + "_" + commonfunction_c::BaseFunctions::Int2Str(i) + ".jpg";
+						//result.WriteImage("jpg", 0, fileName.c_str());
+
+						//x++;
+					}
+					else {
+						l.Log("cam:" + BaseFunctions::Int2Str(i) + " , grab failed");
+						WaitForSingleObject(hMutex, INFINITE);
+						g_grabResults[i] = GRAB_STATUS_FAILED;
+						ReleaseMutex(hMutex);
+					}
+				}
+				catch (...) {
+
+				}
+			}
+		}  //while (true)
+		//WaitForSingleObject(hMutex, INFINITE);
+		//g_activeThreadNum--;
+		//ReleaseMutex(hMutex);
+	}
+	catch (...) {
+
+	}
+	return 0;
+}
+
 unsigned long ImageConcatProc(void* lpParameter)
 {
 	Logger l("d:");
@@ -731,6 +1008,10 @@ void call_image_concat()
 	HImage image = imageConcat(g_id);
 	image.WriteImage("jpg", 0, "d:/grabs/trigger_concat_0.jpg");
 	return;
+}
+
+void standard_mode_run()
+{
 }
 
 HImage imageConcat(time_t id)

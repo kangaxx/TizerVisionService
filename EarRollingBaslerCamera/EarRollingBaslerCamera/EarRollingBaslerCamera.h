@@ -44,13 +44,13 @@ extern "C" {
 	__declspec(dllexport) void setHalconFunction(callHalconFunc func);
 	__declspec(dllexport) void call_image_concat();
 }
-
+HImage standard_mode_run(int argc, char* in[]);
+HImage msa_no_trigger_mode_run(int argc, char* in[]);
 HImage HByteToHImage(int width, int height, HBYTE* bytes);
 unsigned long grabProc(void* lpParameter);
 unsigned long ImageConcatProc(void* lpParameter);
-string sendGrabFailedMessageByWebsocket();
-string sendEarLocationCorrectMessageByWebsocket(int id);
-string sendEarLocationErrorMessageByWebsocket(int id);
+unsigned long intervalGrabProc(void* lpParameter);
+
 void switchTrigger485(int);
 HImage imageConcat(time_t id);
 //以下算法部分后续要移到rolling halcon library里 gxx

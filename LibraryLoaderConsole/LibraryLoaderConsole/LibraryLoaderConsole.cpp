@@ -23,7 +23,7 @@
 
 
 
-#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20311.09"
+#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20323.10"
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -216,18 +216,18 @@ public:
 		Redis redis = Redis("tcp://127.0.0.1:6379");
 		auto value = redis.rpop(key);
 		std::cout << value.value() << std::endl;
-		int param_num = 0;
 		try {
 			JsonHelper jh(value.value());
 			calibration_line_top_ = BaseFunctions::Str2Int(jh.search(JSON_CALIBRATION_TOP_KEY), 0);
 			calibration_line_bottom_ = BaseFunctions::Str2Int(jh.search(JSON_CALIBRATION_BOTTOM_KEY), 1);
 			camera_width_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_WIDTH), 1920);
-			camera_height_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_WIDTH), 1080);
+			camera_height_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_HEIGHT), 1080);
 			package_delay_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_PACKAGE_DELAY), 1000);
 			package_size_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_PACKAGE_SIZE), 7000);
 			exposure_time_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_EXPOSURE_TIME), 3000);
 			center_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_CENTER), 3000);
-			param_num_ = 3;
+			param_num_ = STANDARD_CAMERA_MODE;
+
 		}
 		catch (...) {
 			calibration_line_top_ = 0;
@@ -257,9 +257,9 @@ public:
 		string cameraLeftName = ch.findValue("cameraLeftName", string("string"));
 		string cameraMidName = ch.findValue("cameraMidName", string("string"));
 		string cameraRightName = ch.findValue("cameraRightName", string("string"));
-		char* in[9];
+		char* in[10];
 		char leftCamera[50], midCamera[50], rightCamera[50], camera_width[10], camera_height[10], package_delay[10], 
-			package_size[10], exposure_time[10], center[10];
+			package_size[10], exposure_time[10], center[10], param_num[5];
 		strcpy_s(leftCamera, cameraLeftName.c_str());
 		strcpy_s(midCamera, cameraMidName.c_str());
 		strcpy_s(rightCamera, cameraRightName.c_str());
@@ -269,19 +269,65 @@ public:
 		commonfunction_c::BaseFunctions::Int2Chars(package_size_, package_size);
 		commonfunction_c::BaseFunctions::Int2Chars(center_, center);
 		commonfunction_c::BaseFunctions::Int2Chars(exposure_time_, exposure_time);
-		in[0] = &leftCamera[0];
-		in[1] = &midCamera[0];
-		in[2] = &rightCamera[0];
-		in[3] = &camera_width[0];
-		in[4] = &camera_height[0];
-		in[5] = &package_delay[0];
-		in[6] = &package_size[0];
-		in[7] = &center[0];
-		in[8] = &exposure_time[0];
+		commonfunction_c::BaseFunctions::Int2Chars(param_num_, param_num);
+		in[0] = &param_num[0];
+		in[1] = &leftCamera[0];
+		in[2] = &midCamera[0];
+		in[3] = &rightCamera[0];
+		in[4] = &camera_width[0];
+		in[5] = &camera_height[0];
+		in[6] = &package_delay[0];
+		in[7] = &package_size[0];
+		in[8] = &center[0];
+		in[9] = &exposure_time[0];
 		HImage image = cameraWorkFunc(0, in);
 		return image;
 	}
 
+	//读取相机动态链接库
+	HImage run_msa_test() {
+		HINSTANCE hDllInst;
+		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
+		Logger l("d:");
+		param_num_ = MSA_NO_TRIGGER_CAMERA_MODE;
+
+		l.Log(ch.findValue("cameraLibrary", string("string")));
+		hDllInst = LoadLibrary(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str());
+		if (hDllInst == 0) {
+			throw "Load camera library failed!";
+		}
+		cameraWork cameraWorkFunc = NULL;
+		cameraWorkFunc = (cameraWork)GetProcAddress(hDllInst, "cameraWorker");
+		if (cameraWorkFunc == 0) {
+			FreeLibrary(hDllInst);
+			throw "Load camera library function failed!";
+		}
+		setHalconFunction setFunc = NULL;
+		setFunc = (setHalconFunction)GetProcAddress(hDllInst, "setHalconFunction");
+		if (setFunc == 0) {
+			FreeLibrary(hDllInst);
+			throw "Load camera library set halcon function failed!";
+		}
+		//测试委托
+		setFunc(delegateFunction);
+		string cameraLeftName = ch.findValue("cameraLeftName", string("string"));
+		string cameraMidName = ch.findValue("cameraMidName", string("string"));
+		string cameraRightName = ch.findValue("cameraRightName", string("string"));
+		char* in[9];
+		char leftCamera[50], midCamera[50], rightCamera[50], camera_width[10], camera_height[10], package_delay[10],
+			package_size[10], exposure_time[10], center[10], param_num[5];
+		strcpy_s(leftCamera, cameraLeftName.c_str());
+		strcpy_s(midCamera, cameraMidName.c_str());
+		strcpy_s(rightCamera, cameraRightName.c_str());
+
+		commonfunction_c::BaseFunctions::Int2Chars(param_num_, param_num);
+		in[0] = &param_num[0];
+		in[1] = &leftCamera[0];
+		in[2] = &midCamera[0];
+		in[3] = &rightCamera[0];
+		HImage image = cameraWorkFunc(0, in);
+		return image;
+	}
 
 	HImage runCalibrationCameraLib() {
 		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&readRedisProc, NULL, 0, 0);
@@ -381,6 +427,7 @@ static LibraryLoader ll;
 
 int main()
 {
+ 
 	Logger l("d:");
 	l.Log(PROGRAM_COMPLIRE_VERSION);
 	l.Log(BaseFunctions::ws2s(BaseFunctions::GetWorkPath()));
@@ -391,6 +438,7 @@ int main()
 	std::cout << "[3] create calibration file! \n";
 	std::cout << "[4] grab calibration image! \n";
 	std::cout << "[5] concat image manual, ONLY IN DEBUG MODE! \n";
+	std::cout << "[6] msa test! \n";
 	while (true) {
 		std::cin >> index;
 		std::cout << "selected index :" << index << std::endl;
@@ -420,6 +468,10 @@ int main()
 				break;
 			case 5:
 				ll.run_manual_concat_image();
+				break;
+			case 6:
+				//run msa test
+				ll.run_msa_test();
 				break;
 			default:
 				break;

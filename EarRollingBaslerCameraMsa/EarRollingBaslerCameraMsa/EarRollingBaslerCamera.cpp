@@ -13,7 +13,7 @@
 using namespace Pylon;
 using namespace Basler_UniversalCameraParams;
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "msa camera worker , trigger mode, version 2111081845"
+#define LIBRARY_COMPLIRE_VERSION "msa camera worker , no trigger mode, version 22001"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 #define EAR_LOCATION_WAIT -2
 #define EAR_LOCATION_GRAB_FAILED -1
@@ -24,7 +24,7 @@ using namespace Basler_UniversalCameraParams;
 #define CONCAT_IMAGE_FAIL 2
 #define ROLLING_RESULT_NG false
 #define ROLLING_RESULT_OK true
-#define TRIGGER_GRAB_MODE //定义该宏，使用触发拍摄模式，如果注释掉则使用定时拍摄模式
+//#define TRIGGER_GRAB_MODE //定义该宏，使用触发拍摄模式，如果注释掉则使用定时拍摄模式
 //#define CAMERA_ARRAY_MODE
 void handle_message(const std::string& message)
 {
