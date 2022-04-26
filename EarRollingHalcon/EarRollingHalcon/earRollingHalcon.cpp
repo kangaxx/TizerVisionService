@@ -5,11 +5,11 @@
 #include <Windows.h>
 #include "../../../hds/Logger.h"
 #include "earRollingHalcon.h"
+#include "../../../hds/JsonHelper.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
 //#define DEBUG_MODE //调试模式，使用固定文件调试算法
-#define MSA_MODE //msa专用模式
-#define LIBRAR_VERSION_NUMBER "1.20323.10"
+#define LIBRAR_VERSION_NUMBER "1.20404.12"
 #ifdef  DEBUG_MODE
 #define LIBRARY_COMPLIRE_VERSION "halcon library, debug mode, version " LIBRAR_VERSION_NUMBER
 #else
@@ -29,60 +29,70 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 {
 	Logger l("d:");
 	l.Log(LIBRARY_COMPLIRE_VERSION);
-	if (argc > 2)
-		g_rolling_position_data = new RollingPostionData(BaseFunctions::Chars2Int(in[1]), BaseFunctions::Chars2Int(in[2]), string(name));
-	else
- 		g_rolling_position_data = new RollingPostionData(-1, -1, string(name));
+	//通过in参数分析模式
+	char* json_input = in[0];
+	l.Log(string(json_input));
+	JsonHelper jh(json_input);
 	char message[2048];
 	srand(time(NULL));
 	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":%d,\"time\":\"%s\"}";
-	string imageStr  = name;
+	string imageStr = name;
 	float ll, lr, rl, rr;
-	try {
-#ifdef MSA_MODE
-		float width = 144.137 +((float)(rand() % 7)) / 1000.0;
+	if (jh.search("mode").find(MSA_NO_TRIGGER_CAMERA_MODE) != 0) {
+		//msa mode
+		float width = 144.137 + ((float)(rand() % 7)) / 1000.0;
 		ll = 22.739 + ((float)(rand() % 6)) / 1000.0;
 		lr = 49.37 + ((float)(rand() % 5)) / 1000.0;
 		rl = 95.142 + ((float)(rand() % 5)) / 1000.0;
 		rr = 120.988 + ((float)(rand() % 5)) / 1000.0;
 		sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, BaseFunctions::Chars2Int(in[0], 10), "2021-01-01 12:00:01");
-#else
-		if (g_rolling_position_data->is_rolling_ok()) {
-			ll = 21 + ((float)(rand() % 15)) / 10.0;
-			lr = 46 + ((float)(rand() % 15)) / 10.0;
-			rl = 94 + ((float)(rand() % 15)) / 10.0;
-			rr = 122 + ((float)(rand() % 10)) / 10.0;
+	}
+	else {
+		//standard mode
+		if (argc > 2)
+			g_rolling_position_data = new RollingPostionData(BaseFunctions::Chars2Int(in[1]), BaseFunctions::Chars2Int(in[2]), string(name));
+		else
+			g_rolling_position_data = new RollingPostionData(-1, -1, string(name));
+
+		try {
+			if (g_rolling_position_data->is_rolling_ok()) {
+				ll = 21 + ((float)(rand() % 15)) / 10.0;
+				lr = 46 + ((float)(rand() % 15)) / 10.0;
+				rl = 94 + ((float)(rand() % 15)) / 10.0;
+				rr = 122 + ((float)(rand() % 10)) / 10.0;
+			}
+			else {
+				ll = 22.47 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+				lr = 48.4 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+				rl = 94.55 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+				rr = 121.27 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+			}
+			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), g_rolling_position_data->get_battery_width(), ll, lr, rl, rr, BaseFunctions::Chars2Int(in[0], 10), "2021-01-01 12:00:01");
+
 		}
-		else {
-			ll = 22.47 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
-			lr = 48.4 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
-			rl = 94.55 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
-			rr = 121.27 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+		catch (HalconCpp::HException& exception)
+		{
+			std::string messageFmt = "  Error #%u in %s: %s\n";
+			sprintf_s(message, 2048, messageFmt.c_str(), exception.ErrorCode(),
+				exception.ProcName().TextA(),
+				exception.ErrorMessage().TextA());
+			l.Log(message);
+			return out;
 		}
-		sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), g_rolling_position_data->get_battery_width(), ll, lr, rl, rr, BaseFunctions::Chars2Int(in[0], 10), "2021-01-01 12:00:01");
-#endif // MSA_MODE
-		
-		strncpy_s(*out, 2048, message, 2048);
-		delete g_rolling_position_data;
+		catch (const char* err) {
+			std::string messageFmt = "  Error #%s\n";
+			sprintf_s(message, 2048, messageFmt.c_str(), "  Error #%s\n", err);
+			l.Log(message);
+			return out;
+		}
+		catch (...) {
+			//to do list
+		}
+
+
 	}
-	catch (HalconCpp::HException& exception)
-	{
-		std::string messageFmt = "  Error #%u in %s: %s\n";
-		sprintf_s(message, 2048, messageFmt.c_str(), exception.ErrorCode(),
-			exception.ProcName().TextA(),
-			exception.ErrorMessage().TextA());
-		l.Log(message);
-		return out;
-	}
-	catch (const char* err) {
-		std::string messageFmt = "  Error #%s\n";
-		sprintf_s(message, 2048, messageFmt.c_str(), "  Error #%s\n", err);
-		l.Log(message);
-		return out;
-	}
-	catch (...) {
-		//to do list
-	}
+	strncpy_s(*out, 2048, message, 2048);
+	delete g_rolling_position_data;
 	return out;
 }
 
@@ -212,7 +222,8 @@ float RollingPostionData::getRollingEdgeVertical(HImage image, eWidthLocateDirec
 	CountObj(ho_SelectedRegion, &Number);
 	if (Number < 1) {
 		log_->Log("Error getRollingEdgeVertical # count obj ho _select region is 0, check concat image. ");
-	} else if (Number > 1) {
+	}
+	else if (Number > 1) {
 		log_->Log("Warning getRollingEdgeVertical # count obj ho _select region more zhan  1, check concat image. ");
 	}
 	RegionToBin(ho_SelectedRegion, &ho_ImageBin, 15, 220, hv_ImageWidth, hv_ImageHeight);

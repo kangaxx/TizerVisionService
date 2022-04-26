@@ -10,7 +10,7 @@
 #include "ModbusThread.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.20328.10"
+#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.20406.19"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 
 #define SAVE_IMAGE_PREFIX "d:/grabs/trigger_concat_"
@@ -328,6 +328,7 @@ HImage msa_no_trigger_mode_run(int argc, char* in[])
 	Logger l("d:");
 	try {
 		l.Log(LIBRARY_COMPLIRE_VERSION);
+		l.Log("In msa mode , put in num [6]!");
 		//string grabed_image_path = BaseFunctions::combineFilePath(BaseFunctions::ws2s(BaseFunctions::GetWorkPath()), IMAGE_GRABED_FOLDER); //暂时先不要挪到工作目录内，后续版本改进
 		BaseFunctions::createDirectoryW(BaseFunctions::s2ws(string(IMAGE_GRABED_PATH)));
 		assert(BaseFunctions::isFolderExist(IMAGE_GRABED_PATH));
@@ -367,6 +368,14 @@ HImage msa_no_trigger_mode_run(int argc, char* in[])
 			}
 			cameras[i].MaxNumBuffer = 5;
 			cameras[i].Open();
+
+			cameras[i].TriggerSelector.SetValue(TriggerSelector_FrameStart);
+			cameras[i].TriggerMode.SetValue(TriggerMode_On);
+			cameras[i].LineSelector.SetValue(LineSelector_Line1);
+			//cameras[i].LineDebouncerTimeAbs.SetValue(20000);
+			cameras[i].LineMode.SetValue(LineMode_Input);
+			cameras[i].TriggerSource.SetValue(TriggerSource_Line1);
+			cameras[i].TriggerActivation.SetValue(TriggerActivation_RisingEdge);
 			l.Log("camera [" + commonfunction_c::BaseFunctions::Int2Str(i) + "] opened!");
 		}
 
@@ -374,7 +383,7 @@ HImage msa_no_trigger_mode_run(int argc, char* in[])
 		g_grabTimeStart = time(NULL);
 		for (size_t i = 0; i < g_cameraNum; ++i) {
 			pthread_num[i] = i;
-			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&intervalGrabProc, (void*)&pthread_num[i], 0, 0);
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&grabProc, (void*)&pthread_num[i], 0, 0);
 		}
 		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&ImageConcatProc, (void*)&g_cameraNum, 0, 0);
 #ifdef GRAB_LOOP_TIME
@@ -432,7 +441,11 @@ HImage msa_no_trigger_mode_run(int argc, char* in[])
 			else if (concatStatus == CONCAT_IMAGE_SUCCESS) {
 				if (g_halconFunction != nullptr) {
 					l.Log("CONCAT_IMAGE_SUCCESS");
-					g_halconFunction(g_message);
+					//by gxx 重复30次
+					for (int i = 0; i < 30; ++i) {
+						g_halconFunction(g_message);
+						Sleep(20);
+					}
 				}
 			}
 			//照相抓图失败，basler相机报错

@@ -21,9 +21,7 @@
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
 
-
-
-#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20323.10"
+#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20424.18"
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -36,6 +34,7 @@
 using namespace fastdelegate;
 using namespace HalconCpp;
 using namespace sw::redis;
+//using namespace boost::asio;
 class LibraryLoader;
 
 void delegateFunction(char*);
@@ -139,6 +138,23 @@ unsigned long readRedisProc(void* lpParameter) {
 	return 0;
 }
 
+unsigned long heart_beat_proc(void* lpParameter) {
+	int num = 0;
+	char value[6];
+	StringView key = "heartbeat";
+	while (true) {
+		if (num > 9999)
+			num = 0;
+		Redis redis = Redis("tcp://127.0.0.1:6379");
+		commonfunction_c::BaseFunctions::Int2Chars(num, value);
+		StringView val = value;
+		redis.set(key, val);
+		Sleep(2000);
+		num++;
+	}
+	return 0;
+}
+
 class LibraryLoader {
 public:
 	//读取算法动态链接库
@@ -214,8 +230,8 @@ public:
 		Logger l("d:");
 		StringView key = REDIS_LIST_CALIBRATION_KEY;
 		Redis redis = Redis("tcp://127.0.0.1:6379");
-		auto value = redis.rpop(key);
-		std::cout << value.value() << std::endl;
+		auto value = redis.get(key);
+		l.Log(value.value());
 		try {
 			JsonHelper jh(value.value());
 			calibration_line_top_ = BaseFunctions::Str2Int(jh.search(JSON_CALIBRATION_TOP_KEY), 0);
@@ -425,10 +441,10 @@ private:
 
 static LibraryLoader ll;
 
-int main()
+int main(int argc, char** argv)
 {
- 
 	Logger l("d:");
+	CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&heart_beat_proc, NULL, 0, 0);
 	l.Log(PROGRAM_COMPLIRE_VERSION);
 	l.Log(BaseFunctions::ws2s(BaseFunctions::GetWorkPath()));
 	std::cout << "Hello World! Welcome to library loader, pls select library by num\n";
@@ -515,8 +531,8 @@ void delegateFunction(char* msg) {
 	//调用算法
 	try {
 		char* args[8];
-		char status[10];
-		strcpy_s(status, 10, jh.search("status").c_str());
+		char status[400];
+		strcpy_s(status, 400, msg);
 		args[0] = &status[0];
 		ll.runHalconLib(1, args, jh.search(key));
 	}

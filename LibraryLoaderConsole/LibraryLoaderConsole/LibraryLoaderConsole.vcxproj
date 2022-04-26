@@ -130,7 +130,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(HALCONROOT)\lib\$(HALCONARCH);C:\redis++</AdditionalLibraryDirectories>
-      <AdditionalDependencies>halconcpp.lib;redis++_static.lib;winmm.lib;Win32_Interop.lib;hiredis.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>halconcpp.lib;redis++_static.lib;win32_interop.lib;winmm.lib;hiredis.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <HeapCommitSize>
       </HeapCommitSize>
       <LargeAddressAware>true</LargeAddressAware>
