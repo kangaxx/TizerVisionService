@@ -4,4 +4,8 @@
     <LocalDebuggerCommand>D:\github\TizerVisionService\LibraryLoaderConsole\x64\Debug\LibraryLoaderConsole.exe</LocalDebuggerCommand>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ConsoleInHome|x64'">
+    <LocalDebuggerCommand>H:\work\github\TizerVisionService\LibraryLoaderConsole\x64\Debug\LibraryLoaderConsole.exe</LocalDebuggerCommand>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
 </Project>
