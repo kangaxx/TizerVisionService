@@ -9,7 +9,7 @@
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
 //#define DEBUG_MODE //调试模式，使用固定文件调试算法
-#define LIBRAR_VERSION_NUMBER "1.20404.12"
+#define LIBRAR_VERSION_NUMBER "1.20427.17"
 #ifdef  DEBUG_MODE
 #define LIBRARY_COMPLIRE_VERSION "halcon library, debug mode, version " LIBRAR_VERSION_NUMBER
 #else
@@ -33,19 +33,20 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 	char* json_input = in[0];
 	l.Log(string(json_input));
 	JsonHelper jh(json_input);
+	l.Log("status : " + string(jh.search("status").c_str()));
 	char message[2048];
 	srand(time(NULL));
 	std::string messageFmt = "{\"id\":%d, \"image\":\"%s\",\"width\":%f,\"leftleft\":%f,\"leftright\":%f,\"rightleft\":%f,\"rightright\":%f,\"status\":%d,\"time\":\"%s\"}";
 	string imageStr = name;
 	float ll, lr, rl, rr;
-	if (jh.search("mode").find(MSA_NO_TRIGGER_CAMERA_MODE) != 0) {
+	if (jh.search("mode").find(STANDARD_CAMERA_MODE_CHAR) == std::string::npos) {
 		//msa mode
 		float width = 144.137 + ((float)(rand() % 7)) / 1000.0;
 		ll = 22.739 + ((float)(rand() % 6)) / 1000.0;
 		lr = 49.37 + ((float)(rand() % 5)) / 1000.0;
 		rl = 95.142 + ((float)(rand() % 5)) / 1000.0;
 		rr = 120.988 + ((float)(rand() % 5)) / 1000.0;
-		sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, BaseFunctions::Chars2Int(in[0], 10), "2021-01-01 12:00:01");
+		sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, BaseFunctions::Chars2Int(jh.search("status").c_str(), 10), "2021-01-01 12:00:01");
 	}
 	else {
 		//standard mode
@@ -67,7 +68,7 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 				rl = 94.55 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
 				rr = 121.27 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
 			}
-			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), g_rolling_position_data->get_battery_width(), ll, lr, rl, rr, BaseFunctions::Chars2Int(in[0], 10), "2021-01-01 12:00:01");
+			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), g_rolling_position_data->get_battery_width(), ll, lr, rl, rr, BaseFunctions::Chars2Int(jh.search("status").c_str(), 10), "2021-01-01 12:00:01");
 
 		}
 		catch (HalconCpp::HException& exception)
