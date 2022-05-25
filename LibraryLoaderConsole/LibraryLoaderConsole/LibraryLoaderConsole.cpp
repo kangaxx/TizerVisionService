@@ -471,8 +471,8 @@ int main(int argc, char** argv)
 				break;
 			case 2:
 				char* args[8];
-				char status[10];
-				strcpy_s(status, 10, BaseFunctions::Int2Str(CONCAT_IMAGE_SUCCESS).c_str());
+				char status[30];
+				strcpy_s(status, 30,"{\"status\": 0,\"mode\" : 0}");
 				args[0] = &status[0];
 				ll.runHalconLib(2, args, "d:/images/trigger_concat_400");
 				break;
