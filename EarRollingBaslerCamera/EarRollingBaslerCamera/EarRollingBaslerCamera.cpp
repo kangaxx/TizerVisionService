@@ -10,7 +10,7 @@
 #include "ModbusThread.h"
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
-#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.20406.19"
+#define LIBRARY_COMPLIRE_VERSION "camera library, version 1.20527.16"
 #define MAX_CROSS_ERROR 7 //超过这个数字说明极耳错位
 
 #define SAVE_IMAGE_PREFIX "d:/grabs/trigger_concat_"
@@ -237,7 +237,6 @@ HImage standard_mode_run(int argc, char* in[])
 
 
 		while (true) {
-			l.Log("Main thread start"); //test log
 			Sleep(200);
 			//先测试以下共享内存
 			WaitForSingleObject(hMutex, INFINITE);
@@ -263,6 +262,8 @@ HImage standard_mode_run(int argc, char* in[])
 			else if (concatStatus == CONCAT_IMAGE_SUCCESS) {
 				if (g_halconFunction != nullptr) {
 					l.Log("CONCAT_IMAGE_SUCCESS");
+					l.Log("camera to halcon message:");
+					l.Log(g_message);
 					g_halconFunction(g_message);
 				}
 			}
@@ -891,7 +892,6 @@ unsigned long ImageConcatProc(void* lpParameter)
 				time(&g_id);
 				fileName = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::time2str(g_id) + ".jpg";
 				image = imageConcat(g_id);
-
 			}
 			catch (...) {
 				g_concatImageStatus = CONCAT_IMAGE_FAIL;
@@ -938,6 +938,7 @@ unsigned long ImageConcatProc(void* lpParameter)
 	//WaitForSingleObject(hMutex, INFINITE);
 	//g_activeThreadNum--;
 	//ReleaseMutex(hMutex);
+	l.Log("Image concat finished!");
 	return 0;
 }
 

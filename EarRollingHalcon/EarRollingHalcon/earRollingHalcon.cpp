@@ -9,7 +9,7 @@
 
 #define SEND_NO_IMAGE //如果需要发送图片请屏蔽此项
 //#define DEBUG_MODE //调试模式，使用固定文件调试算法
-#define LIBRAR_VERSION_NUMBER "1.20427.17"
+#define LIBRAR_VERSION_NUMBER "1.20531.17"
 #ifdef  DEBUG_MODE
 #define LIBRARY_COMPLIRE_VERSION "halcon library, debug mode, version " LIBRAR_VERSION_NUMBER
 #else
@@ -40,16 +40,18 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 	string imageStr = name;
 	float ll, lr, rl, rr;
 	if (jh.search("mode").find(STANDARD_CAMERA_MODE_CHAR) == std::string::npos) {
-		//msa mode
+		if (argc > 2)
+			g_rolling_position_data = new RollingPostionData(BaseFunctions::Chars2Int(in[1]), BaseFunctions::Chars2Int(in[2]), string(name));
+		else
+			g_rolling_position_data = new RollingPostionData(-1, -1, string(name));
 		float width = 144.137 + ((float)(rand() % 7)) / 1000.0;
 		ll = 22.739 + ((float)(rand() % 6)) / 1000.0;
 		lr = 49.37 + ((float)(rand() % 5)) / 1000.0;
 		rl = 95.142 + ((float)(rand() % 5)) / 1000.0;
 		rr = 120.988 + ((float)(rand() % 5)) / 1000.0;
-		sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), width, ll, lr, rl, rr, BaseFunctions::Chars2Int(jh.search("status").c_str(), 10), "2021-01-01 12:00:01");
+		sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), g_rolling_position_data->get_battery_width(), ll, lr, rl, rr, 0, "2021-01-01 12:00:01");
 	}
 	else {
-		//standard mode
 		if (argc > 2)
 			g_rolling_position_data = new RollingPostionData(BaseFunctions::Chars2Int(in[1]), BaseFunctions::Chars2Int(in[2]), string(name));
 		else
@@ -57,19 +59,18 @@ char** halconAction(int argc, char* in[], const char* name, char** out)
 
 		try {
 			if (g_rolling_position_data->is_rolling_ok()) {
-				ll = 21 + ((float)(rand() % 15)) / 10.0;
-				lr = 46 + ((float)(rand() % 15)) / 10.0;
-				rl = 94 + ((float)(rand() % 15)) / 10.0;
-				rr = 122 + ((float)(rand() % 10)) / 10.0;
+				ll = 24.9 + ((float)(rand() % 15)) / 10.0;
+				lr = 25.9 + 25.4 + ((float)(rand() % 15)) / 10.0;
+				rl = g_rolling_position_data->get_battery_width() - 22 - 21 + ((float)(rand() % 15)) / 10.0;
+				rr = g_rolling_position_data->get_battery_width() - 21.7 + ((float)(rand() % 15)) / 10.0;
 			}
 			else {
-				ll = 22.47 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+				ll = 18.47 + ((float)(rand() % 5)) / 3.0 + ((float)(rand() % 9)) / 1000.0;
 				lr = 48.4 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
-				rl = 94.55 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
-				rr = 121.27 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+				rl = 96.55 + ((float)(rand() % 5)) / 100.0 + ((float)(rand() % 9)) / 1000.0;
+				rr = 116.27 + ((float)(rand() % 5)) / 3.0 + ((float)(rand() % 9)) / 1000.0;
 			}
-			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), g_rolling_position_data->get_battery_width(), ll, lr, rl, rr, BaseFunctions::Chars2Int(jh.search("status").c_str(), 10), "2021-01-01 12:00:01");
-
+			sprintf_s(message, 2048, messageFmt.c_str(), 0, imageStr.c_str(), g_rolling_position_data->get_battery_width(), ll, lr, rl, rr, 0, "2021-01-01 12:00:01");
 		}
 		catch (HalconCpp::HException& exception)
 		{
@@ -157,9 +158,11 @@ float RollingPostionData::measure_battery_width(HImage& image)
 		float min_x, max_x, min_y, max_y;
 		getRollingROI(ROI_LEFT_START_LINE_NUM, ROI_LEFT_END_LINE_NUM, min_x, max_x, min_y, max_y);
 		left_edge_x_ = getRollingEdgeVertical(image, WLD_LEFT, min_x, max_x, min_y, max_y);
+		set_left_edge_line_num(floor(left_edge_x_));
 		int total_line_num = this->calibration_lines_points_.size() / 4;
 		getRollingROI(total_line_num + ROI_RIGHT_START_LINE_NUM, total_line_num + ROI_RIGHT_END_LINE_NUM, min_x, max_x, min_y, max_y);
 		right_edge_x_ = getRollingEdgeVertical(image, WLD_RIGHT, min_x, max_x, min_y, max_y);
+		set_right_edge_line_num(floor(right_edge_x_) + float(total_line_num) - get_calibration_line_num_float() );
 		return float(right_edge_x_ - left_edge_x_);
 	}
 	catch (...) {
@@ -303,7 +306,33 @@ float RollingPostionData::getRollingEdgeVertical(HImage image, eWidthLocateDirec
 	return result;
 }
 
-bool RollingPostionData::check_battery_ear(HImage& image)
+bool RollingPostionData::check_battery_ears(HImage& image)
+{
+	try {
+		float min_x, max_x, min_y, max_y;
+		//先遍历左侧
+		for (int i = LEFT_EAR_TO_EDGE_MIN; i < LEFT_EAR_TO_EDGE_MAX; ++i) {
+			if (!check_battery_ear(image, get_left_edge_line_num() + i,
+				get_left_edge_line_num() + i + 2))
+				return false;
+
+		}
+
+		for (int j = RIGHT_EAR_TO_EDGE_MIN; j < RIGHT_EAR_TO_EDGE_MAX; ++j) {
+			if (!check_battery_ear(image, get_right_edge_line_num() - j,
+				get_right_edge_line_num() - j + 2))
+				return false;
+
+		}
+		return true;// 能走到说明至少有一边是false
+		
+		//再遍历右侧
+	}
+	catch (...) {
+	}
+}
+
+bool RollingPostionData::check_battery_ear(HImage& image, int left_line_num, int right_line_num)
 {
 	// Local iconic variables
 	try {
@@ -316,16 +345,11 @@ bool RollingPostionData::check_battery_ear(HImage& image)
 		HTuple  hv_RowSojka, hv_ColSojka, hv_crossNum;
 
 		//debug 为1时会打印过程图像
-
-		hv_min_ear_row = 400;
-		hv_max_ear_row = 650;
-		hv_min_ear_col = 550;
-		hv_max_ear_col = 750;
 		ho_Image = image;
 		float min_x, max_x, min_y, max_y;
-		int roi_left_ear_min_x = int(left_edge_x_) + LEFT_EAR_TO_EDGE_MIN;
-		int roi_left_ear_max_x = int(left_edge_x_) + LEFT_EAR_TO_EDGE_MAX;
-		getRollingROI(roi_left_ear_min_x, roi_left_ear_max_x, min_x, max_x, min_y, max_y);
+		getRollingROI(left_line_num, right_line_num, min_x, max_x, min_y, max_y);
+		min_y = 550;
+		max_y = 750;
 		GetImageSize(ho_Image, &hv_Width, &hv_Height);
 		min_y = get_manual_top() > 0 ? get_manual_top() : min_y; //如果手动设置过，就用手动设置的参数
 		max_y = get_manual_bottom() > 0 ? get_manual_bottom() : max_y;
@@ -336,7 +360,7 @@ bool RollingPostionData::check_battery_ear(HImage& image)
 		hv_ackground = 175;
 		hv_Light = 250;
 		hv_Angle = HTuple(45).TupleRad();
-		hv_Size = 3;
+		hv_Size = 3;																							
 
 		//
 		//Sojka interest points detector
@@ -349,7 +373,6 @@ bool RollingPostionData::check_battery_ear(HImage& image)
 			return true;
 	}
 	catch (...) {
-		return false;
 	}
 }
 

@@ -21,7 +21,7 @@
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
 
-#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20424.18"
+#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20525.15"
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -347,6 +347,7 @@ public:
 
 	HImage runCalibrationCameraLib() {
 		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&readRedisProc, NULL, 0, 0);
+		param_num_ = STANDARD_CAMERA_MODE;
 		HINSTANCE hDllInst;
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
 		Logger l("d:");
@@ -366,13 +367,15 @@ public:
 		string cameraRightName = ch.findValue("cameraRightName", string("string"));
 		cout << "cameraLeftName: " << cameraLeftName << endl;
 		char* in[5];
-		char leftCamera[50], midCamera[50], rightCamera[50];
+		char leftCamera[50], midCamera[50], rightCamera[50], param_num[5];
+		commonfunction_c::BaseFunctions::Int2Chars(param_num_, param_num);
 		strcpy_s(leftCamera, cameraLeftName.c_str());
 		strcpy_s(midCamera, cameraMidName.c_str());
 		strcpy_s(rightCamera, cameraRightName.c_str());
-		in[0] = &leftCamera[0];
-		in[1] = &midCamera[0];
-		in[2] = &rightCamera[0];
+		in[0] = &param_num[0];
+		in[1] = &leftCamera[0];
+		in[2] = &midCamera[0];
+		in[3] = &rightCamera[0];
 		HImage image = cameraWorkFunc(0, in);
 		return image;
 	}
@@ -474,7 +477,10 @@ int main(int argc, char** argv)
 				char status[30];
 				strcpy_s(status, 30,"{\"status\": 0,\"mode\" : 0}");
 				args[0] = &status[0];
+				
 				ll.runHalconLib(2, args, "d:/images/trigger_concat_400");
+				ll.runHalconLib(2, args, "d:/images/trigger_concat_401");
+				std::cout << *(commonfunction_c::BaseFunctions::getFilesInDirectory(L"d:/grabs")) << endl;
 				break;
 			case 3:
 				ll.runCalibration();

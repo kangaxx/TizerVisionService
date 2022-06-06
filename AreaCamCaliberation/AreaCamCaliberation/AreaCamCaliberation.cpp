@@ -30,7 +30,7 @@ bool calibrationWorker(int argc, char* in[])
 	}
 #endif 
 	Gray_Min = 0;
-	Gray_Max = 50;
+	Gray_Max = 20;
 	GetImageSize(Image, &Width, &Height);
 	//GenRectangle1(&Rectangle, 250, 400, 950, Width);
 	//ReduceDomain(Image, Rectangle, &Image);

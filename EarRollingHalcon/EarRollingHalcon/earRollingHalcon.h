@@ -31,7 +31,7 @@ public:
 		initial_calibration_lines();
 		load_image(name); 
 		set_battery_width(measure_battery_width(ho_image_));
-		update_battery_status(check_battery_ear(ho_image_));
+		update_battery_status(check_battery_ears(ho_image_));
 	}
 
 	~RollingPostionData() {
@@ -64,6 +64,10 @@ private:
 	Logger* log_;
 	float left_edge_x_ = 0.0;
 	float right_edge_x_ = 0.0;
+	void set_left_edge_line_num(int value) { left_edge_line_num = value; }
+	void set_right_edge_line_num(int value) { right_edge_line_num = value; }
+	int get_left_edge_line_num() { return left_edge_line_num; }
+	int get_right_edge_line_num() { return right_edge_line_num; }
 	void initial_calibration_lines();
 	//从左侧开始某个点在标定区域内的横向坐标（左侧相机用)
 	float get_distance_left(float x, float y);
@@ -73,8 +77,10 @@ private:
 	void load_image(string);
 	float measure_battery_width(HImage& image);
 	float getRollingEdgeVertical(HImage image, eWidthLocateDirect direct, int xMin, int xMax, int yMin, int yMax); //横向极值点
-	bool check_battery_ear(HImage& image); //极耳位置判定，没问题返回true，否则返回false
-	void update_battery_status(bool value) { is_rolling_ok_ = (is_rolling_ok_ && value); }
+	bool check_battery_ears(HImage& image);
+	bool check_battery_ear(HImage& image, int left_line_num, int right_line_num); //极耳位置判定，没问题返回true，否则返回false
+	void update_battery_status(bool value) { is_rolling_ok_ = value; }
 	void getRollingROI(int min_line_num, int max_line_num, float& min_x, float& max_x, float& min_y, float& max_y);
+	int left_edge_line_num, right_edge_line_num;
 };
 RollingPostionData* g_rolling_position_data;
