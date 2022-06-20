@@ -17,6 +17,7 @@
 #include "../../../hds/Logger.h"
 #include "../../../hds/configHelper.h"
 #include "../../../hds/JsonHelper.h"
+#include "../../../hds/CameraHelper.h"
 #include "SerialPort.h"
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
@@ -46,7 +47,10 @@ typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [],
 typedef void (*setHalconFunction)(callHalconFunc);
 typedef void (*call_image_concat)();
 typedef bool (*trigger_complete)(int);
+
 using namespace commonfunction_c;
+typedef CameraDevicesParent* (*get_camera_devices)(const char*); //初始化相机设备
+typedef void (*free_camera_devices)(); //释放相机
 static int index;
 
 //如果电芯不合格，需要触发485继电器来剔除，下面的功能就是触发485
@@ -344,6 +348,14 @@ public:
 		HImage image = cameraWorkFunc(0, in);
 		return image;
 	}
+	
+	void run_daheng_camera_test() {
+		string config_file = commonfunction_c::BaseFunctions::ws2s(commonfunction_c::BaseFunctions::GetWorkPath() + L"\\config.ini");
+		cout << config_file << endl;
+		configHelper ch(config_file, CT_JSON);
+		CameraHelper::get_instance();
+		return;
+	}
 
 	HImage runCalibrationCameraLib() {
 		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&readRedisProc, NULL, 0, 0);
@@ -458,11 +470,11 @@ int main(int argc, char** argv)
 	std::cout << "[4] grab calibration image! \n";
 	std::cout << "[5] concat image manual, ONLY IN DEBUG MODE! \n";
 	std::cout << "[6] msa test! \n";
+	std::cout << "[7] (temporary) Daheng camera test! \n";
 	while (true) {
 		std::cin >> index;
 		std::cout << "selected index :" << index << std::endl;
 		if (index == 0) return 0;
-
 
 		HImage image;
 		try {
@@ -479,8 +491,6 @@ int main(int argc, char** argv)
 				args[0] = &status[0];
 				
 				ll.runHalconLib(2, args, "d:/images/trigger_concat_400");
-				ll.runHalconLib(2, args, "d:/images/trigger_concat_401");
-				std::cout << *(commonfunction_c::BaseFunctions::getFilesInDirectory(L"d:/grabs")) << endl;
 				break;
 			case 3:
 				ll.runCalibration();
@@ -494,6 +504,9 @@ int main(int argc, char** argv)
 			case 6:
 				//run msa test
 				ll.run_msa_test();
+				break;
+			case 7:
+				ll.run_daheng_camera_test();
 				break;
 			default:
 				break;
