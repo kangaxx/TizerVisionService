@@ -22,6 +22,7 @@
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
 
+#define DEBUG_WORK_PATH "Z:\\TizerVisionService\\LibraryLoaderConsole\\x64\\Debug\\" //代码调试模式下工作目录
 #define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20525.15"
 
 #ifdef PYLON_WIN_BUILD
@@ -49,7 +50,7 @@ typedef void (*call_image_concat)();
 typedef bool (*trigger_complete)(int);
 
 using namespace commonfunction_c;
-typedef CameraDevicesParent* (*get_camera_devices)(const char*); //初始化相机设备
+typedef CameraDevicesBase* (*get_camera_devices)(const char*); //初始化相机设备
 typedef void (*free_camera_devices)(); //释放相机
 static int index;
 
@@ -350,10 +351,35 @@ public:
 	}
 	
 	void run_daheng_camera_test() {
-		string config_file = commonfunction_c::BaseFunctions::ws2s(commonfunction_c::BaseFunctions::GetWorkPath() + L"\\config.ini");
+		HINSTANCE hDllInst;
+#ifndef DEBUG_WORK_PATH
+		string config_file = commonfunction_c::BaseFunctions::ws2s(commonfunction_c::BaseFunctions::GetWorkPath() + L"\\configuration\\config.ini");
+#else
+		string config_file = DEBUG_WORK_PATH + commonfunction_c::BaseFunctions::ws2s(L"\\configuration\\config.ini");
+#endif
 		cout << config_file << endl;
 		configHelper ch(config_file, CT_JSON);
-		CameraHelper::get_instance();
+		Logger l("d:");
+		param_num_ = MSA_NO_TRIGGER_CAMERA_MODE;
+		l.Log(ch.findValue("cameraLibrary", string("string")));
+		hDllInst = LoadLibrary(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str());
+		if (hDllInst == 0) {
+			throw "Load camera library failed!";
+		}
+		get_camera_devices get_camera_devices_func = NULL;
+		get_camera_devices_func = (get_camera_devices)GetProcAddress(hDllInst, "get_camera_devices");
+		if (get_camera_devices_func == 0) {
+			FreeLibrary(hDllInst);
+			throw "Load camera library function {get_camera_devices_func} failed!";
+		}
+		string camera_infos = ch.findValue("camera_infos", string("string"));
+		l.Log(camera_infos);
+		CameraDevicesBase* devices = get_camera_devices_func(camera_infos.c_str());
+		//test do capture
+		//HImage image_test;
+		//devices->do_capture(0, image_test);
+
+
 		return;
 	}
 
