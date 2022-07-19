@@ -1087,6 +1087,7 @@ HImage imageConcat(time_t id)
 	//×¢Òâ²»ÊÇelse if
 	if (g_cameraNum == 3) {
 		ho_ImageRight = images[2];
+
 		//ReadImage(&ho_ImageRight, "d:/grabs/27_3.bmp");
 		string fileNameRight = SAVE_IMAGE_PREFIX + commonfunction_c::BaseFunctions::time2str(g_id) + "_3.jpg";
 		HImage(ho_ImageRight).WriteImage("jpg", 0, fileNameRight.c_str());

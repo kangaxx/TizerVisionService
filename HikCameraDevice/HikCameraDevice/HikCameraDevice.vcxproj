@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{76c67bed-31cb-4636-9085-818dab4dc2b4}</ProjectGuid>
-    <RootNamespace>VirtualCameraDevice</RootNamespace>
+    <ProjectGuid>{62c0b750-8831-4285-aa35-fa6d5af480a9}</ProjectGuid>
+    <RootNamespace>HikCameraDevice</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -80,7 +80,7 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>D:\boost_1_76_0;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(IncludePath)</IncludePath>
     <LibraryPath>D:\boost_1_76_0\libs;$(HALCONROOT)\lib\$(HALCONARCH);$(LibraryPath)</LibraryPath>
-    <OutDir>D:\github\TizerVisionService\LibraryLoaderConsole\x64\Debug</OutDir>
+    <OutDir>Z:\TizerVisionService\LibraryLoaderConsole\x64\Debug</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -119,12 +119,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>C:\Program Files (x86)\MVS\Development\Includes</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(HALCONROOT)\lib\$(HALCONARCH);C:\Program Files\Daheng Imaging\GalaxySDK\Samples\C++ SDK\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>halconcpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(HALCONROOT)\lib\$(HALCONARCH);C:\Program Files (x86)\MVS\Development\Libraries\win64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>MvCameraControl.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>version_script.bat</Command>
@@ -147,11 +148,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="version.h" />
-    <ClInclude Include="VirtualCameraDevice.h" />
+    <ClInclude Include="HikCameraDevice.h" />
+    <ClInclude Include="MvCamera.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="VirtualCameraDevice.cpp" />
+    <ClCompile Include="HikCameraDevice.cpp" />
+    <ClCompile Include="MvCamera.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

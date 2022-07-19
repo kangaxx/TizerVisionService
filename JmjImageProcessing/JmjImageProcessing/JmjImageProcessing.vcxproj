@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{76c67bed-31cb-4636-9085-818dab4dc2b4}</ProjectGuid>
-    <RootNamespace>VirtualCameraDevice</RootNamespace>
+    <ProjectGuid>{67403fa6-55c6-4e62-b8b2-f98ee0c1ddf1}</ProjectGuid>
+    <RootNamespace>JmjImageProcessing</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -40,7 +40,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -72,6 +72,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>D:\boost_1_76_0;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\boost_1_76_0\libs;$(HALCONROOT)\lib\$(HALCONARCH);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -80,7 +82,6 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>D:\boost_1_76_0;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(IncludePath)</IncludePath>
     <LibraryPath>D:\boost_1_76_0\libs;$(HALCONROOT)\lib\$(HALCONARCH);$(LibraryPath)</LibraryPath>
-    <OutDir>D:\github\TizerVisionService\LibraryLoaderConsole\x64\Debug</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -95,6 +96,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(HALCONROOT)\lib\$(HALCONARCH);C:\Program Files\Daheng Imaging\GalaxySDK\Samples\C++ SDK\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -123,12 +125,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(HALCONROOT)\lib\$(HALCONARCH);C:\Program Files\Daheng Imaging\GalaxySDK\Samples\C++ SDK\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>halconcpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(HALCONROOT)\lib\$(HALCONARCH);C:\Program Files (x86)\MVS\Development\Libraries\win64</AdditionalLibraryDirectories>
     </Link>
-    <PreBuildEvent>
-      <Command>version_script.bat</Command>
-    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -147,11 +145,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="JmjImageProcessing.h" />
     <ClInclude Include="version.h" />
-    <ClInclude Include="VirtualCameraDevice.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="VirtualCameraDevice.cpp" />
+    <ClCompile Include="JmjImageProcessing.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

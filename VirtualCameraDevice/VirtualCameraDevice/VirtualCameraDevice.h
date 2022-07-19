@@ -1,7 +1,7 @@
 /******************************************************/
 /*                    create by gxx                   */
 /*                     22年06月16日                   */
-/*                 虚拟相机调试功能模块                */
+/*                 虚拟相机调试功能模块               */
 /******************************************************/
 #pragma once
 #include "HalconCpp.h"
@@ -14,7 +14,7 @@
 #include "../../../hds/JsonHelper.h"
 #include "version.h"
 
-#define DEBUG_WORK_PATH "Z:\\TizerVisionService\\LibraryLoaderConsole\\x64\\Debug\\" //代码调试模式下工作目录
+//#define DEBUG_WORK_PATH "Z:\\TizerVisionService\\LibraryLoaderConsole\\x64\\Debug\\" //代码调试模式下工作目录
 #define _VERTOSTRING(arg) #arg
 #define VERTOSTRING(arg) _VERTOSTRING(arg)
 #define VER_MAIN    1 //系统结构级别
@@ -42,6 +42,9 @@ public:
 	VirtualCameraDevice(const VirtualCameraDevice& right) {}
 	~VirtualCameraDevice() {}
 	bool do_capture(int index, HalconCpp::HImage& image);
+	int get_devices_num() {
+		return _image_count;
+	}
 private:
 	VirtualCameraDevice() {} //暂时不允许无参数的构建函数
 	Logger* _log = nullptr;

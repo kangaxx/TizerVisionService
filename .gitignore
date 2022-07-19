@@ -47,3 +47,7 @@
 .vs
 Debug
 x64
+
+#work dirs
+logs
+*.log

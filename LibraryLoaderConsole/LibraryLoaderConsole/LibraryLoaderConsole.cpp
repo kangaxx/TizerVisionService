@@ -22,8 +22,8 @@
 #include <pylon/PylonIncludes.h>
 #include <pylon/gige/GigETransportLayer.h>
 
-#define DEBUG_WORK_PATH "Z:\\TizerVisionService\\LibraryLoaderConsole\\x64\\Debug\\" //代码调试模式下工作目录
-#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20525.15"
+//#define DEBUG_WORK_PATH "Z:\\TizerVisionService\\LibraryLoaderConsole\\x64\\Debug\\" //代码调试模式下工作目录
+#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20719.11"
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -48,6 +48,7 @@ typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [],
 typedef void (*setHalconFunction)(callHalconFunc);
 typedef void (*call_image_concat)();
 typedef bool (*trigger_complete)(int);
+typedef char** (*halcon_program)(int, char* [], HImage&, char**);
 
 using namespace commonfunction_c;
 typedef CameraDevicesBase* (*get_camera_devices)(const char*); //初始化相机设备
@@ -162,7 +163,48 @@ unsigned long heart_beat_proc(void* lpParameter) {
 
 class LibraryLoader {
 public:
-	//读取算法动态链接库
+	LibraryLoader() {
+		_ch = new configHelper("c:\\tizer\\config.ini", CT_JSON);
+
+#ifndef DEBUG_WORK_PATH
+		string log_dir = BaseFunctions::ws2s(BaseFunctions::GetWorkPath()) + "\\" + _ch->findValue("log_dir", string("string"));
+#else
+		string log_dir = DEBUG_WORK_PATH + "\\" + _ch->findValue("log_dir", string("string"));
+#endif
+		_log = new Logger(log_dir);
+	}
+
+	//读取算法动态链接库（非回调模式）
+	void run_halcon_lib_no_delegate(int argc, char* in[], HImage& image) {
+		_log->Log("run_halcon_lib_no_delegate start");
+		Redis redis = Redis("tcp://127.0.0.1:6379");
+		HINSTANCE hDllInst;
+		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(_ch->findValue("halconLibraryND", string("string"))).c_str()));
+		if (hDllInst == 0) {
+			_log->Log("Halcon library (ND) load error!");
+			return;
+		}
+		halcon_program hp = NULL;
+		hp = (halcon_program)GetProcAddress(hDllInst, "halcon_program");
+		if (hp == 0) {
+			_log->Log("Halcon function load error!");
+			return;
+		}
+		char buffer[INT_HALCON_BURR_RESULT_SIZE] = { '\0' };
+		char** out = new char* ();
+		*out = &buffer[0];
+		char* source[8];
+		source[0] = in[0];
+		try {
+			hp(argc, source, image, out);
+			_log->Log(string(*out));
+			lPush(REDIS_WRITE_KEY, string(*out));
+		}
+		catch (...) {
+		}
+	}
+
+	//读取算法动态链接库（回调模式）
 	void runHalconLib(int argc, char* in[], string image) {
 		Logger l("d:");
 		l.Log("Console program #runHalconLib start"); //test log
@@ -350,19 +392,12 @@ public:
 		return image;
 	}
 	
-	void run_daheng_camera_test() {
+
+	void run_area_camera_function() {
 		HINSTANCE hDllInst;
-#ifndef DEBUG_WORK_PATH
-		string config_file = commonfunction_c::BaseFunctions::ws2s(commonfunction_c::BaseFunctions::GetWorkPath() + L"\\configuration\\config.ini");
-#else
-		string config_file = DEBUG_WORK_PATH + commonfunction_c::BaseFunctions::ws2s(L"\\configuration\\config.ini");
-#endif
-		cout << config_file << endl;
-		configHelper ch(config_file, CT_JSON);
-		Logger l("d:");
 		param_num_ = MSA_NO_TRIGGER_CAMERA_MODE;
-		l.Log(ch.findValue("cameraLibrary", string("string")));
-		hDllInst = LoadLibrary(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str());
+		_log->Log(_ch->findValue("cameraLibrary", string("string")));
+		hDllInst = LoadLibrary(BaseFunctions::s2ws(_ch->findValue("cameraLibrary", string("string"))).c_str());
 		if (hDllInst == 0) {
 			throw "Load camera library failed!";
 		}
@@ -370,16 +405,17 @@ public:
 		get_camera_devices_func = (get_camera_devices)GetProcAddress(hDllInst, "get_camera_devices");
 		if (get_camera_devices_func == 0) {
 			FreeLibrary(hDllInst);
-			throw "Load camera library function {get_camera_devices_func} failed!";
+			throw "Load camera library function [get_camera_devices_func] failed!";
 		}
-		string camera_infos = ch.findValue("camera_infos", string("string"));
-		l.Log(camera_infos);
-		CameraDevicesBase* devices = get_camera_devices_func(camera_infos.c_str());
+		string camera_devices_info = _ch->findValue("camera_devices_info", string("string"));
+		_log->Log(camera_devices_info);
+		CameraDevicesBase* devices = get_camera_devices_func(camera_devices_info.c_str());
 		//test do capture
-		//HImage image_test;
-		//devices->do_capture(0, image_test);
-
-
+		HImage image_test;
+		int num = devices->get_devices_num();
+		for (int i = 0; i < num; ++i) {
+			devices->do_capture(0, image_test);
+		}
 		return;
 	}
 
@@ -475,7 +511,36 @@ public:
 		auto value = redis.rpop("list");
 		return value.value();
 	}
+
+	void run_camera_no_delegate_no_processing() {
+		HINSTANCE hDllInst;
+		_log->Log(_ch->findValue("cameraLibrary", string("string")));
+		hDllInst = LoadLibrary(BaseFunctions::s2ws(_ch->findValue("cameraLibrary", string("string"))).c_str());
+		if (hDllInst == 0) {
+			throw "Load camera library failed!";
+		}
+		get_camera_devices get_camera_devices_func = NULL;
+		get_camera_devices_func = (get_camera_devices)GetProcAddress(hDllInst, "get_camera_devices");
+		if (get_camera_devices_func == 0) {
+			FreeLibrary(hDllInst);
+			throw "Load camera library function [get_camera_devices_func] failed!";
+		}
+		string camera_devices_info = _ch->findValue("camera_devices_info", string("string"));
+		CameraDevicesBase* devices = get_camera_devices_func(camera_devices_info.c_str());
+		//test do capture
+		HImage image_test;
+		char* in[5];
+		in[0] = const_cast<char*>("{\"id\": 1}");
+		int num = devices->get_devices_num();
+		for (int i = 0; i < num; ++i) {
+			devices->do_capture(0, image_test);
+			run_halcon_lib_no_delegate(0, in, image_test);
+		}
+		return;
+	}
 private:
+	configHelper* _ch;
+	Logger* _log;
 	int calibration_line_top_, calibration_line_bottom_, param_num_;
 	int camera_width_, camera_height_, package_size_, package_delay_, center_, exposure_time_;
 };
@@ -496,7 +561,8 @@ int main(int argc, char** argv)
 	std::cout << "[4] grab calibration image! \n";
 	std::cout << "[5] concat image manual, ONLY IN DEBUG MODE! \n";
 	std::cout << "[6] msa test! \n";
-	std::cout << "[7] (temporary) Daheng camera test! \n";
+	std::cout << "[7] area camera function! \n";
+	std::cout << "[8] jmj test system function! \n";
 	while (true) {
 		std::cin >> index;
 		std::cout << "selected index :" << index << std::endl;
@@ -532,7 +598,10 @@ int main(int argc, char** argv)
 				ll.run_msa_test();
 				break;
 			case 7:
-				ll.run_daheng_camera_test();
+				ll.run_area_camera_function();
+				break;
+			case 8:
+				ll.run_camera_no_delegate_no_processing();
 				break;
 			default:
 				break;
