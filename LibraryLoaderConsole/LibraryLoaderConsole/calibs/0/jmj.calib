@@ -1,0 +1,6 @@
+ {
+    "camera_parameters":["area_scan_division",0.353448,-107.701,2.19981e-06,2.2e-06,1754.63,790.086,2592,1944],
+    "camera_pose":[-0.141502,0.0206212,0.492352,358.734,354.227,270.394,0],
+    "calib_file":"D:/github/halcon_demo/jmj/49pt_calibration_5m.bmp",
+    "plate_desc":"D:/github/halcon_demo/jmj/caltab.descr"
+}

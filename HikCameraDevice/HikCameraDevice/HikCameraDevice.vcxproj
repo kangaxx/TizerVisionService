@@ -80,7 +80,7 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>D:\boost_1_76_0;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(IncludePath)</IncludePath>
     <LibraryPath>D:\boost_1_76_0\libs;$(HALCONROOT)\lib\$(HALCONARCH);$(LibraryPath)</LibraryPath>
-    <OutDir>Z:\TizerVisionService\LibraryLoaderConsole\x64\Debug</OutDir>
+    <OutDir>..\..\LibraryLoaderConsole\x64\Debug</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -125,7 +125,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(HALCONROOT)\lib\$(HALCONARCH);C:\Program Files (x86)\MVS\Development\Libraries\win64</AdditionalLibraryDirectories>
-      <AdditionalDependencies>MvCameraControl.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>halconcpp.lib;MvCameraControl.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
       <Command>version_script.bat</Command>

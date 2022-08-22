@@ -19,8 +19,6 @@
 #include "../../../hds/JsonHelper.h"
 #include "../../../hds/CameraHelper.h"
 #include "SerialPort.h"
-#include <pylon/PylonIncludes.h>
-#include <pylon/gige/GigETransportLayer.h>
 
 //#define DEBUG_WORK_PATH "Z:\\TizerVisionService\\LibraryLoaderConsole\\x64\\Debug\\" //代码调试模式下工作目录
 #define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20719.11"
@@ -40,15 +38,20 @@ using namespace sw::redis;
 class LibraryLoader;
 
 void delegateFunction(char*);
+void camera_caputred_delegate(const char* json, HImage& image);
+
 typedef void (*halconFunc)(int, char* [], const char*, char**);
 typedef HImage(*cameraWork)(int, char* []);
 typedef bool (*calibrationWork)(int, char* []);
 typedef void (*callHalconFunc)(char*);
+typedef void (*cameraCaputredDelegate)(const char*, HImage&);
 typedef void (*setHalconFunctionDelegate)(void (LibraryLoader::*)(int, char* [], HBYTE[]));
 typedef void (*setHalconFunction)(callHalconFunc);
+typedef void (*setCameraCapturedDelegate)(cameraCaputredDelegate);
 typedef void (*call_image_concat)();
 typedef bool (*trigger_complete)(int);
 typedef char** (*halcon_program)(int, char* [], HImage&, char**);
+typedef void (*halcon_program_image_list)(int, char* [], vector<HImage*>&, char*);
 
 using namespace commonfunction_c;
 typedef CameraDevicesBase* (*get_camera_devices)(const char*); //初始化相机设备
@@ -174,6 +177,13 @@ public:
 		_log = new Logger(log_dir);
 	}
 
+	void log(const char* msg) {
+		_log->Log(msg);
+	}
+
+	void log(string msg) {
+		_log->Log(msg);
+	}
 	//读取算法动态链接库（非回调模式）
 	void run_halcon_lib_no_delegate(int argc, char* in[], HImage& image) {
 		_log->Log("run_halcon_lib_no_delegate start");
@@ -204,7 +214,90 @@ public:
 		}
 	}
 
-	//读取算法动态链接库（回调模式）
+	//读取算法动态链接库（回调模式+HImage）
+	void run_halcon_lib_with_delegate_image(int argc, char* in[], HImage& image) {
+		_log->Log("Console program #run_halcon_lib_with_delegate_image start"); //test log
+		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
+		JsonHelper jh;
+		jh.initial(string(in[0]));
+		int camera_id = BaseFunctions::Str2Int(jh.search("camera_id")); //min camera id is 0
+		while (_captured_images.size() < _camera_count) {
+			_captured_images.push_back(NULL);
+		}
+		_captured_images.at(camera_id) = &image;
+		int total_image_count = 0;
+		for (int i = 0; i < _camera_count; ++i) {
+			if (_captured_images[i] != NULL)
+				total_image_count++;
+		}
+		if (total_image_count < _camera_count) {
+			_log->Log("Image captured, wait for more image!");
+			return;
+		}
+		HINSTANCE hDllInst;
+
+		Redis redis = Redis("tcp://127.0.0.1:6379");
+		StringView work_status_key = REDIS_WORK_STATUS_KEY;
+		auto work_status_value = redis.get(work_status_key);
+		try {
+			if (work_status_value.value()._Equal(REDIS_WORK_STATUS_STOP) > 0) {
+				//客户停止检测程序
+				_log->Log("Measure program stopped by client user!");
+				return;
+			}
+			else {
+				_log->Log("Measure program set to run by client user!"); // test log
+			}
+		}
+		catch (...) {
+			//某些情况下工作状态监控功能是无效并且会抛出错误
+		}
+
+		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("halconLibrary", string("string"))).c_str()));
+		if (hDllInst == 0) {
+			_log->Log("Halcon library load error!");
+			return;
+		}
+		halcon_program_image_list func = NULL;
+		func = (halcon_program_image_list)GetProcAddress(hDllInst, "halconActionWithImageList");
+		if (func == 0) {
+			_log->Log("Halcon function load error!");
+			return;
+		}
+		int burr_limit = 15;
+		int localImage = ch.findValue("localImage", 1);
+		char* source[8];
+		//设置输入参数
+		//
+		int width = 1920; //实际参数需要参看相机情况，读取本地文件时设置为0
+		int height = 1080; // 同上
+		int polesWidth = 10;
+		source[0] = in[0]; //status
+		source[1] = NULL;
+		source[2] = NULL;
+		source[3] = NULL;
+		source[4] = NULL;
+		source[5] = NULL;
+		source[6] = NULL;
+		source[7] = NULL;
+		//初始化输出参数
+		try {
+			_log->Log("Console try to run halcon function!");
+			char test[INT_HALCON_BURR_RESULT_SIZE] = { "\0" };
+			func(param_num_, source, _captured_images, &test[0]);
+			_log->Log(test);
+			lPush(REDIS_WRITE_KEY, string(test));
+			for (int i = 0; i < _captured_images.size(); ++i)
+				_captured_images.at(i) = NULL;
+		}
+		catch (...) {
+		}
+		//std::cout << "get taichi result : " << **out << std::endl;
+		if (hDllInst > 0)
+			FreeLibrary(hDllInst);
+		return;
+	}
+
 	void runHalconLib(int argc, char* in[], string image) {
 		Logger l("d:");
 		l.Log("Console program #runHalconLib start"); //test log
@@ -222,7 +315,7 @@ public:
 		else {
 			l.Log("Measure program set to run by client user!"); // test log
 		}
-		
+
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
 		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("halconLibrary", string("string"))).c_str()));
 		if (hDllInst == 0) {
@@ -512,6 +605,34 @@ public:
 		return value.value();
 	}
 
+	void run_camera_with_delegate_no_processing() {
+		HINSTANCE hDllInst;
+		_log->Log(_ch->findValue("cameraLibrary", string("string")));
+		hDllInst = LoadLibrary(BaseFunctions::s2ws(_ch->findValue("cameraLibrary", string("string"))).c_str());
+		if (hDllInst == 0) {
+			throw "Load camera library failed!";
+		}
+		setCameraCapturedDelegate set_camera_capture_delegate;
+		set_camera_capture_delegate = (setCameraCapturedDelegate)GetProcAddress(hDllInst, "set_camera_captured_delegate");
+		if (set_camera_capture_delegate == 0) {
+			FreeLibrary(hDllInst);
+			throw "Load camera library function [set_camera_captured_delegate] failed!";
+		}
+		set_camera_capture_delegate(camera_caputred_delegate);
+		get_camera_devices get_camera_devices_func = NULL;
+		get_camera_devices_func = (get_camera_devices)GetProcAddress(hDllInst, "get_camera_devices");
+		if (get_camera_devices_func == 0) {
+			FreeLibrary(hDllInst);
+			throw "Load camera library function [get_camera_devices_func] failed!";
+		}
+		string camera_devices_info = _ch->findValue("camera_devices_info", string("string"));
+		CameraDevicesBase* devices = get_camera_devices_func(camera_devices_info.c_str());
+		if ((_camera_count = devices->get_devices_num()) < 0) 
+			throw "Error , no devices found!";
+		HImage no_image_return; //委托模式下himage在回调方法里返回
+		devices->do_capture(-1, no_image_return);
+	}
+
 	void run_camera_no_delegate_no_processing() {
 		HINSTANCE hDllInst;
 		_log->Log(_ch->findValue("cameraLibrary", string("string")));
@@ -529,12 +650,20 @@ public:
 		CameraDevicesBase* devices = get_camera_devices_func(camera_devices_info.c_str());
 		//test do capture
 		HImage image_test;
-		char* in[5];
-		in[0] = const_cast<char*>("{\"id\": 1}");
 		int num = devices->get_devices_num();
 		for (int i = 0; i < num; ++i) {
-			devices->do_capture(0, image_test);
-			run_halcon_lib_no_delegate(0, in, image_test);
+			char* in[5];
+			string fmt = "{\"id\": %d, \"camera_tag\":\"%s\", \"log_dir\":\"%s\", \"calib_dir\":\"%s\"}";
+			string log_dir = _ch->findValue("log_dir", string("string"));
+			string calib_dir = _ch->findValue("calib_dir", string("string"));
+			char message[100];
+			string camera_tag = devices->get_camera_tag(i);
+			sprintf_s(message, 100, fmt.c_str(), _camera_jobs_id++, camera_tag.c_str(),
+				log_dir.c_str(), calib_dir.c_str());
+			in[0] = &message[0];
+			if (devices->do_capture(i, image_test))
+				run_halcon_lib_no_delegate(0, in, image_test);
+			_halcon_jobs_id++;
 		}
 		return;
 	}
@@ -543,6 +672,10 @@ private:
 	Logger* _log;
 	int calibration_line_top_, calibration_line_bottom_, param_num_;
 	int camera_width_, camera_height_, package_size_, package_delay_, center_, exposure_time_;
+	int _halcon_jobs_id = 0;
+	int _camera_jobs_id = 0;
+	int _camera_count = 0;
+	vector<HImage*> _captured_images;
 };
 
 static LibraryLoader ll;
@@ -550,6 +683,16 @@ static LibraryLoader ll;
 int main(int argc, char** argv)
 {
 	Logger l("d:");
+	Redis redis = Redis("tcp://127.0.0.1:6379");
+	int get_cmd_num_from_redis;
+	try {
+		StringView cmd_num_key = REDIS_COMMAND_NUMBER;
+		auto cmd_num = redis.get(cmd_num_key);
+		get_cmd_num_from_redis = BaseFunctions::Str2Int(cmd_num.value());
+	}
+	catch (...) {
+		get_cmd_num_from_redis = -1;
+	}
 	CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&heart_beat_proc, NULL, 0, 0);
 	l.Log(PROGRAM_COMPLIRE_VERSION);
 	l.Log(BaseFunctions::ws2s(BaseFunctions::GetWorkPath()));
@@ -563,9 +706,13 @@ int main(int argc, char** argv)
 	std::cout << "[6] msa test! \n";
 	std::cout << "[7] area camera function! \n";
 	std::cout << "[8] jmj test system function! \n";
+	std::cout << "[9] xy test system function! \n";
 	while (true) {
-		std::cin >> index;
-		std::cout << "selected index :" << index << std::endl;
+		if (get_cmd_num_from_redis > 0 && get_cmd_num_from_redis < 100)
+			index = get_cmd_num_from_redis;
+		else
+			std::cin >> index;
+		l.Log("index : " + BaseFunctions::Int2Str(index));
 		if (index == 0) return 0;
 
 		HImage image;
@@ -574,7 +721,6 @@ int main(int argc, char** argv)
 			{
 			case 1:
 				image = ll.runCameraLib();
-				Pylon::PylonTerminate();
 				break;
 			case 2:
 				char* args[8];
@@ -603,6 +749,9 @@ int main(int argc, char** argv)
 			case 8:
 				ll.run_camera_no_delegate_no_processing();
 				break;
+			case 9:
+				ll.run_camera_with_delegate_no_processing();
+				break;
 			default:
 				break;
 			}
@@ -621,6 +770,7 @@ int main(int argc, char** argv)
 			//to do list
 		}
 
+		get_cmd_num_from_redis = -1;
 		/* ↓↓↓↓↓↓以下只是测试相机采集 ， 可以屏蔽 ↓↓↓↓↓↓
 		HObject ho_Image;
 		GenImage1Extern(&ho_Image, "byte", 1920, 1080, (Hlong)(ho_data.getImage()), NULL);
@@ -655,6 +805,17 @@ void delegateFunction(char* msg) {
 	}
 	return;
 }
+
+void camera_caputred_delegate(const char* json, HImage& image) {
+	ll.log("Delegate function start!"); //test log
+	ll.log(string(json)); //test log
+	char* args[8];
+	char status[400];
+	strcpy_s(status, 400, json);
+	args[0] = &status[0];
+	ll.run_halcon_lib_with_delegate_image(1, args, image);
+}
+
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
 // 调试程序: F5 或调试 >“开始调试”菜单
 

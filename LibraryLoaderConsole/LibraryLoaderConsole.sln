@@ -15,6 +15,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "KLImageProcessing", "..\KLI
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HikCameraDevice", "..\HikCameraDevice\HikCameraDevice\HikCameraDevice.vcxproj", "{62C0B750-8831-4285-AA35-FA6D5AF480A9}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "XySizeMeasureHalcon", "..\XySizeMeasureHalcon\XySizeMeasureHalcon\XySizeMeasureHalcon.vcxproj", "{BD230808-8892-41E7-AEED-4BC25BE8FA55}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "JmjCornerAlignmentHalcon", "..\JmjCornerAlignmentHalcon\JmjCornerAlignmentHalcon\JmjCornerAlignmentHalcon.vcxproj", "{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		ConsoleInHome|x64 = ConsoleInHome|x64
@@ -97,6 +101,30 @@ Global
 		{62C0B750-8831-4285-AA35-FA6D5AF480A9}.Release|x64.Build.0 = Release|x64
 		{62C0B750-8831-4285-AA35-FA6D5AF480A9}.Release|x86.ActiveCfg = Release|Win32
 		{62C0B750-8831-4285-AA35-FA6D5AF480A9}.Release|x86.Build.0 = Release|Win32
+		{BD230808-8892-41E7-AEED-4BC25BE8FA55}.ConsoleInHome|x64.ActiveCfg = Debug|x64
+		{BD230808-8892-41E7-AEED-4BC25BE8FA55}.ConsoleInHome|x64.Build.0 = Debug|x64
+		{BD230808-8892-41E7-AEED-4BC25BE8FA55}.ConsoleInHome|x86.ActiveCfg = Debug|Win32
+		{BD230808-8892-41E7-AEED-4BC25BE8FA55}.ConsoleInHome|x86.Build.0 = Debug|Win32
+		{BD230808-8892-41E7-AEED-4BC25BE8FA55}.Debug|x64.ActiveCfg = Debug|x64
+		{BD230808-8892-41E7-AEED-4BC25BE8FA55}.Debug|x64.Build.0 = Debug|x64
+		{BD230808-8892-41E7-AEED-4BC25BE8FA55}.Debug|x86.ActiveCfg = Debug|Win32
+		{BD230808-8892-41E7-AEED-4BC25BE8FA55}.Debug|x86.Build.0 = Debug|Win32
+		{BD230808-8892-41E7-AEED-4BC25BE8FA55}.Release|x64.ActiveCfg = Release|x64
+		{BD230808-8892-41E7-AEED-4BC25BE8FA55}.Release|x64.Build.0 = Release|x64
+		{BD230808-8892-41E7-AEED-4BC25BE8FA55}.Release|x86.ActiveCfg = Release|Win32
+		{BD230808-8892-41E7-AEED-4BC25BE8FA55}.Release|x86.Build.0 = Release|Win32
+		{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}.ConsoleInHome|x64.ActiveCfg = Debug|x64
+		{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}.ConsoleInHome|x64.Build.0 = Debug|x64
+		{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}.ConsoleInHome|x86.ActiveCfg = Debug|Win32
+		{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}.ConsoleInHome|x86.Build.0 = Debug|Win32
+		{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}.Debug|x64.ActiveCfg = Debug|x64
+		{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}.Debug|x64.Build.0 = Debug|x64
+		{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}.Debug|x86.ActiveCfg = Debug|Win32
+		{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}.Debug|x86.Build.0 = Debug|Win32
+		{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}.Release|x64.ActiveCfg = Release|x64
+		{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}.Release|x64.Build.0 = Release|x64
+		{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}.Release|x86.ActiveCfg = Release|Win32
+		{2AE2E82A-B7B1-46D7-977C-8A2B4A4A26CF}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

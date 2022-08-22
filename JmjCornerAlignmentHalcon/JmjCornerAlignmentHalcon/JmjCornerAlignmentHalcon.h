@@ -5,7 +5,7 @@
 ****************************************************/
 #pragma once
 #include "HalconCpp.h"
-
+#include "HDevThread.h"
 #include "../../../hds/common.h"
 #include "../../../hds/commonfunction_c.h"
 #include "../../../hds/CameraHelper.h"
@@ -32,19 +32,25 @@ extern "C" {
 using namespace std;
 using namespace commonfunction_c;
 
+
+
 class JmjCornerAlignmentHalcon
 {
 public:
-	JmjCornerAlignmentHalcon(int argc, char* in[], HImage& name) {
+	JmjCornerAlignmentHalcon(int argc, char* in[], HImage& image) {
 		char* json_input = in[0];
 		JsonHelper jh(json_input);
+		_camera_tag = jh.search("camera_tag");
 #ifndef DEBUG_WORK_PATH
-		static string log_dir = BaseFunctions::ws2s(BaseFunctions::GetWorkPath()) + jh.search("log_dir");
+		_log_dir = BaseFunctions::ws2s(BaseFunctions::GetWorkPath()) + "\\" + jh.search("log_dir");
+		_calib_dir = BaseFunctions::ws2s(BaseFunctions::GetWorkPath()) + "\\" + jh.search("calib_dir") + "\\" + jh.search("id");
 #else
-		string log_dir = DEBUG_WORK_PATH + jh.search("log_dir");
+		_log_dir = DEBUG_WORK_PATH + "\\" + jh.search("log_dir");
+		_calib_dir = BaseFunctions::ws2s(BaseFunctions::GetWorkPath()) + "\\" + jh.search("calib_dir");
 #endif
-		_log = new Logger(log_dir);
-		_image = &name;
+		_log = new Logger(_log_dir);
+		_image = &image;
+		load_halcon_calib_data();
 	}
 	void log(string words) { _log->Log(words); }
 	void log(wstring words) { _log->Log(words); }
@@ -52,8 +58,13 @@ public:
 	void do_find_cross(int id, char** result);
 
 private:
+	HTuple _image_zoom_value = 0.2;
 	Logger* _log;
 	HImage* _image;
+	string _log_dir, _calib_dir, _camera_tag;
+	HTuple _camera_parameters, _camera_poses;
+	string _calibration_file_name, _plate_desc;
+	void load_halcon_calib_data();
 };
 
  

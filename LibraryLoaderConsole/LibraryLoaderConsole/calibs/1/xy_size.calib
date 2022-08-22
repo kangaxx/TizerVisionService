@@ -1,0 +1,6 @@
+ {
+    "camera_parameters":["area_scan_division","0.570172","82.9113","3.41841e-06","3.45e-06","2208.79","1354.68","4096","3000"],
+    "camera_pose":[-0.0175727,-0.00270017,5.70258,0.126745,7.76333,269.497,0],
+    "calib_file":"D:/Images/xy_cali_left_bottom_2.bmp",
+    "plate_desc":"D:/github/TizerVisionService/LibraryLoaderConsole/LibraryLoaderConsole/calibs/0/caltab_lt.descr"
+}
