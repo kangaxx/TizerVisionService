@@ -60,6 +60,7 @@ private:
 	Logger* _log = nullptr;
 	string _config;
 	int _image_count = 0;
+	int _camera_count = 0;
 	bool _is_delegate_capture; //拍照是回调触发还是主动触发
 	vector<string> _image_files;
 	vector<string> _camera_tags;
