@@ -16,9 +16,12 @@
 #include "../../../hds/JsonHelper.h"
 #include "../../../hds/commonfunction_c.h"
 #include "../../../hds/Logger.h"
+#include "../../../hds/MeasureSize.h"
+#include "../../../hds/tz_project_common.h"
+
 using namespace commonfunction_c;
 extern "C" {
-	__declspec(dllexport) void halconActionWithImageList(int, char* [], vector<HImage*>&, char*);
+	__declspec(dllexport) void halconActionWithImageList(int, char* [], vector<HImage*>&, char*, MeasureSize&, int&);
 }
 
 
@@ -48,6 +51,12 @@ public:
 	int get_job_id() { return _job_id; }
 	bool is_initialed() { return _images.size() == 3; }
 	string get_calib_dir();
+	int get_result_status() {
+		return _result_status;
+	}
+	int measure_image_by_zf(FSIZE& size, MeasureSize& ms);
+	void set_result_status(int v) { _result_status = v; }
+	HImage _image_lt, _image_lb, _image_r;
 private:
 	vector<HImage*> _images;
 	/// <summary>
@@ -88,8 +97,11 @@ private:
 		double& h1, double& ra_t, double& ra_b, double& rb_lt, double& rb_lb);
 	int measure_image_right_by_const_calib_value(double w_left_part, double& l, double& rb_rt, double& rb_rb);
 	int search_corner_circle(CameraPosition position, HImage* image, const HObject& roi,int roi_x_min, double min_phi, double max_phi, HTuple& row_corner, HTuple& column_corner, HTuple& r);
+	int search_rect(HImage* image, const HObject& roi, HTuple gray_min, HTuple gray_max, HTuple& row1, HTuple& col1, HTuple& row2, HTuple& col2);
+	
 	Logger* _log;
 	HImage* _image;
+	int _result_status = 0;
 	string _log_dir, _calib_dir, _camera_tag;
 	int _job_id;
 };

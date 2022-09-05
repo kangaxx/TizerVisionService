@@ -4,7 +4,6 @@ void __stdcall ImageCallBackEx(unsigned char* pData, MV_FRAME_OUT_INFO_EX* pFram
 {
 	if (pFrameInfo)
 	{
-		int msec = GetTickCount() % 10000;
 		unsigned short width, height;
 		width = pFrameInfo->nWidth;
 		height = pFrameInfo->nHeight;
@@ -16,10 +15,7 @@ void __stdcall ImageCallBackEx(unsigned char* pData, MV_FRAME_OUT_INFO_EX* pFram
 		sprintf_s(json, 256, "{\"job_id\":%d, \"camera_id\":%d, \"msec\":%d}",
 			((HikCameraInfo*)pUser)->get_captured_id(),
 			((HikCameraInfo*)pUser)->get_camera_id(),
-			msec);
-		printf("capture_id[%d], camera_id[%d]\n",
-			((HikCameraInfo*)pUser)->get_captured_id(),
-			((HikCameraInfo*)pUser)->get_camera_id());
+			g_msec);
 		((HikCameraInfo*)pUser)->inc_captured_id();
 		g_delegate_function(json, image);
 	}
@@ -119,7 +115,14 @@ void HikCameraDevice::camera_capture(int camera_num_in_list, int camera_id) {
 		}
 
 		// ch:设置触发模式为on | eb:Set trigger mode as on
-		nRet = MV_CC_SetEnumValue(handle, "TriggerMode", is_trigger_mode() ? MV_TRIGGER_MODE_ON : MV_TRIGGER_MODE_OFF);
+		if (is_trigger_mode()) {
+			nRet = MV_CC_SetEnumValue(handle, "TriggerMode", MV_TRIGGER_MODE_ON);
+			MV_CC_SetEnumValue(handle, "TriggerSource", MV_TRIGGER_SOURCE_LINE0);
+		}
+		else {
+			nRet = MV_CC_SetEnumValue(handle, "TriggerMode", MV_TRIGGER_MODE_OFF);
+			MV_CC_SetEnumValue(handle, "TriggerSource", MV_TRIGGER_SOURCE_SOFTWARE);
+		}
 		if (MV_OK != nRet)
 		{
 			printf("Set Trigger Mode fail! nRet [0x%x]\n", nRet);

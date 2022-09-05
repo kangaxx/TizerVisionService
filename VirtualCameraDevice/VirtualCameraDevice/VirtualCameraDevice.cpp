@@ -1,5 +1,6 @@
 #include "VirtualCameraDevice.h"
-#define MAX_VIRTUAL_CAMERA_COUNT 12
+
+
 CameraDevicesBase* get_camera_devices(const char* config)
 {
 	g_devices = new VirtualCameraDevice(config);
@@ -34,27 +35,32 @@ VirtualCameraDevice::VirtualCameraDevice(const char* config)
 		set_capture_type(true);
 	else
 		set_capture_type(false);
+	int image_id = 0;
+	while (image_id < _image_count && image_id < MAX_VIRTUAL_CAMERA_COUNT) {
+		HImage temp_image;
+		ReadImage(&image_list[image_id], _image_files.at(image_id < _image_count ? image_id : _image_count - 1).c_str());
+		image_id++;
+	}
 }
 
 bool VirtualCameraDevice::do_capture(int index, HalconCpp::HImage& image)
 {
 	if (_image_count < 1) return false;
-	HImage img1, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12;
-	HImage image_list[MAX_VIRTUAL_CAMERA_COUNT] = {img1, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12 };
-	int msec = GetTickCount() % 10000;
+
 	int job_id = 0;
 	int image_id = 0;
+	int msec;
 	if (is_delegate_capture())
 		while (image_id < _image_count && image_id < MAX_VIRTUAL_CAMERA_COUNT) {
 			for (int i = 0; i < _camera_count; ++i) {
 				char json[256];
+				msec = GetTickCount() % 100000;
 				sprintf_s(json, 256, "{\"job_id\":%d, \"camera_id\":%d, \"msec\":%d}",
 					job_id, i, msec);
 				if (i == _camera_count - 1)
 					job_id++;
-				HImage temp_image;
-				ReadImage(&image_list[image_id], _image_files.at(image_id < _image_count ? image_id : _image_count - 1).c_str());
 				g_delegate_function(json, image_list[image_id++]);
+				Sleep(15);
 			}
 		}
 	else

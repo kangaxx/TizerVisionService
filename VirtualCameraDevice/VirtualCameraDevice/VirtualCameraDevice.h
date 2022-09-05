@@ -25,6 +25,7 @@
 #define STR_VER_FULL    _T(VERTOSTRING(VER_FULL))
 #define STR_VER_FULL_RC VERTOSTRING(VER_FULL_RC)
 
+
 using namespace commonfunction_c;
 
 typedef void (*cameraCaputredDelegate)(const char*, HImage&);
@@ -64,6 +65,8 @@ private:
 	bool _is_delegate_capture; //拍照是回调触发还是主动触发
 	vector<string> _image_files;
 	vector<string> _camera_tags;
+	HImage img1, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12;
+	HImage image_list[MAX_VIRTUAL_CAMERA_COUNT] = { img1, img2, img3, img4, img5, img6, img7, img8, img9, img10, img11, img12 };
 };
 
 static VirtualCameraDevice* g_devices = NULL;

@@ -18,6 +18,8 @@
 #include "../../../hds/configHelper.h"
 #include "../../../hds/JsonHelper.h"
 #include "../../../hds/CameraHelper.h"
+#include "../../../hds/MeasureSize.h"
+#include "../../../hds/tz_project_common.h"
 #include "SerialPort.h"
 
 //#define DEBUG_WORK_PATH "Z:\\TizerVisionService\\LibraryLoaderConsole\\x64\\Debug\\" //代码调试模式下工作目录
@@ -51,13 +53,21 @@ typedef void (*setCameraCapturedDelegate)(cameraCaputredDelegate);
 typedef void (*call_image_concat)();
 typedef bool (*trigger_complete)(int);
 typedef char** (*halcon_program)(int, char* [], HImage&, char**);
-typedef void (*halcon_program_image_list)(int, char* [], vector<HImage*>&, char*);
+typedef void (*halcon_program_image_list)(int, char* [], vector<HImage*>&, char*, MeasureSize&, int& result); //多相机列表类
+typedef bool (*write_plc_bool)(const char*, bool, bool);
+typedef bool (*connect_plc)();
+typedef bool (*disconnect_plc)();
 
 using namespace commonfunction_c;
 typedef CameraDevicesBase* (*get_camera_devices)(const char*); //初始化相机设备
 typedef void (*free_camera_devices)(); //释放相机
 static int index;
-
+std::mutex log_mtx;
+std::mutex mtx; 
+static halconUtils::HImageExtraInfo* _temp_img0 = NULL;
+static halconUtils::HImageExtraInfo* _temp_img1 = NULL;
+static halconUtils::HImageExtraInfo* _temp_img2 = NULL;
+static HTuple system_time_hour, system_time_min, system_time_sec, system_time_msec;
 //如果电芯不合格，需要触发485继电器来剔除，下面的功能就是触发485
 void switchTrigger485(int port)
 {
@@ -147,6 +157,55 @@ unsigned long readRedisProc(void* lpParameter) {
 	return 0;
 }
 
+unsigned long thread_save_log(void* lpParameter) {
+	int old_msec = 0;
+	int used_time;
+	int log_type;
+	int old_sys_time_msec = 0;
+	Logger l("c:/tz_log");
+	while (true) {
+		if (system_time_msec.I() != old_sys_time_msec || 5 == log_type ) {
+			old_sys_time_msec = system_time_msec.I();
+			log_mtx.lock();
+			used_time = abs_used_time(g_msec - old_msec);
+			old_msec = g_msec;
+			log_type = g_log_msec_type;			
+			log_mtx.unlock();
+			//l.linkable_log("log_time_type:").linkable_log(BaseFunctions::Int2Str(log_type)).linkable_log("time:").linkable_log(BaseFunctions::Int2Str(g_msec)).linkable_log(" used time: ").Log(used_time);
+			
+			//cout << "local time :" << system_time_hour.I() << ":" << system_time_min.I() << ":" << system_time_sec.I() << "  " << system_time_msec.I() << "  ,";
+
+			string log_type_word;
+			switch (log_type) {
+			case 1:
+				log_type_word = "start calc";
+				break;
+			case 2:
+				log_type_word = "calc finished";
+				break;
+			case 3:
+				log_type_word = "redis updated";
+				break;
+			case 4:
+				log_type_word = "get image from camera";
+				break;
+			case 5:
+				log_type_word = "write plc finished";
+				break;
+			defaule:
+				log_type_word = "nothing";
+				break;
+			}
+			l.Log("local time :" + BaseFunctions::Int2Str(system_time_hour.I()) + ":" + BaseFunctions::Int2Str(system_time_min.I()) + ":" + BaseFunctions::Int2Str(system_time_sec.I()) + "  " + BaseFunctions::Int2Str(system_time_msec.I()) + "  ,"
+				+ "log_time_type:" + log_type_word + " used time: " + BaseFunctions::Int2Str(used_time));
+		}
+		else
+			Sleep(1);
+	}
+	return 0;
+}
+
+
 unsigned long heart_beat_proc(void* lpParameter) {
 	int num = 0;
 	char value[6];
@@ -163,6 +222,8 @@ unsigned long heart_beat_proc(void* lpParameter) {
 	}
 	return 0;
 }
+unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter);
+
 
 class LibraryLoader {
 public:
@@ -207,7 +268,6 @@ public:
 		source[0] = in[0];
 		try {
 			hp(argc, source, image, out);
-			_log->Log(string(*out));
 			lPush(REDIS_WRITE_KEY, string(*out));
 		}
 		catch (...) {
@@ -216,85 +276,36 @@ public:
 
 	//读取算法动态链接库（回调模式+HImage）
 	void run_halcon_lib_with_delegate_image(int argc, char* in[], HImage& image) {
-		_log->Log("Console program #run_halcon_lib_with_delegate_image start"); //test log
-		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
+		strncpy_s(temp_in_0, in[0], 256);
+		log_mtx.lock();
+		update_current_msec(4);
+		HalconCpp::GetSystemTime(&system_time_msec, &system_time_sec, &system_time_min, &system_time_hour, 0, 0, 0, 0);
+		log_mtx.unlock();
+		mtx.lock();
 		JsonHelper jh;
 		jh.initial(string(in[0]));
 		int camera_id = BaseFunctions::Str2Int(jh.search("camera_id")); //min camera id is 0
-		while (_captured_images.size() < _camera_count) {
-			_captured_images.push_back(NULL);
+		int job_id = BaseFunctions::Str2Int(jh.search("job_id")); 
+		halconUtils::HImageExtraInfo* ex_image_info = new halconUtils::HImageExtraInfo(image);
+		ex_image_info->set_camera_id(camera_id);
+		ex_image_info->set_job_id(job_id);
+		ex_image_info->set_total_count(_camera_count);
+		switch (camera_id)
+		{
+		case 0:
+			_temp_img0 = ex_image_info;
+			break;
+		case 1:
+			_temp_img1 = ex_image_info;
+			break;
+		case 2:
+			_temp_img2 = ex_image_info;
+			break;
+		default:
+			break;
 		}
-		_captured_images.at(camera_id) = &image;
-		int total_image_count = 0;
-		for (int i = 0; i < _camera_count; ++i) {
-			if (_captured_images[i] != NULL)
-				total_image_count++;
-		}
-		if (total_image_count < _camera_count) {
-			_log->Log("Image captured, wait for more image!");
-			return;
-		}
-		HINSTANCE hDllInst;
-
-		Redis redis = Redis("tcp://127.0.0.1:6379");
-		StringView work_status_key = REDIS_WORK_STATUS_KEY;
-		auto work_status_value = redis.get(work_status_key);
-		try {
-			if (work_status_value.value()._Equal(REDIS_WORK_STATUS_STOP) > 0) {
-				//客户停止检测程序
-				_log->Log("Measure program stopped by client user!");
-				return;
-			}
-			else {
-				_log->Log("Measure program set to run by client user!"); // test log
-			}
-		}
-		catch (...) {
-			//某些情况下工作状态监控功能是无效并且会抛出错误
-		}
-
-		hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("halconLibrary", string("string"))).c_str()));
-		if (hDllInst == 0) {
-			_log->Log("Halcon library load error!");
-			return;
-		}
-		halcon_program_image_list func = NULL;
-		func = (halcon_program_image_list)GetProcAddress(hDllInst, "halconActionWithImageList");
-		if (func == 0) {
-			_log->Log("Halcon function load error!");
-			return;
-		}
-		int burr_limit = 15;
-		int localImage = ch.findValue("localImage", 1);
-		char* source[8];
-		//设置输入参数
-		//
-		int width = 1920; //实际参数需要参看相机情况，读取本地文件时设置为0
-		int height = 1080; // 同上
-		int polesWidth = 10;
-		source[0] = in[0]; //status
-		source[1] = NULL;
-		source[2] = NULL;
-		source[3] = NULL;
-		source[4] = NULL;
-		source[5] = NULL;
-		source[6] = NULL;
-		source[7] = NULL;
-		//初始化输出参数
-		try {
-			_log->Log("Console try to run halcon function!");
-			char test[INT_HALCON_BURR_RESULT_SIZE] = { "\0" };
-			func(param_num_, source, _captured_images, &test[0]);
-			_log->Log(test);
-			lPush(REDIS_WRITE_KEY, string(test));
-			for (int i = 0; i < _captured_images.size(); ++i)
-				_captured_images.at(i) = NULL;
-		}
-		catch (...) {
-		}
-		//std::cout << "get taichi result : " << **out << std::endl;
-		if (hDllInst > 0)
-			FreeLibrary(hDllInst);
+		//_captured_images.at(camera_id) = &image
+		mtx.unlock();
 		return;
 	}
 
@@ -349,9 +360,7 @@ public:
 		char** out = new char* ();
 		*out = &buffer[0];
 		try {
-			l.Log("Console try to run halcon function!");
 			func(param_num_, source, image.c_str(), out);
-			l.Log(string(*out));
 			lPush(REDIS_WRITE_KEY, string(*out));
 		}
 		catch (...) {
@@ -605,9 +614,18 @@ public:
 		return value.value();
 	}
 
+	string get(string k) {
+		Redis redis = Redis("tcp://127.0.0.1:6379");
+		StringView key = k.c_str();
+
+		auto value = redis.get(key);
+		return value.value();
+	}
+
 	void run_camera_with_delegate_no_processing() {
 		HINSTANCE hDllInst;
 		_log->Log(_ch->findValue("cameraLibrary", string("string")));
+		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&thd_call_halcon_camera_array_with_delegate, NULL, 0, 0);
 		hDllInst = LoadLibrary(BaseFunctions::s2ws(_ch->findValue("cameraLibrary", string("string"))).c_str());
 		if (hDllInst == 0) {
 			throw "Load camera library failed!";
@@ -631,6 +649,68 @@ public:
 			throw "Error , no devices found!";
 		HImage no_image_return; //委托模式下himage在回调方法里返回
 		devices->do_capture(-1, no_image_return);
+	}
+
+	void call_plc_hsl_write_bool() {
+		HINSTANCE hDllInst;
+		hDllInst = LoadLibrary(BaseFunctions::s2ws(_ch->findValue("hslLibrary", string("string"))).c_str());
+		if (hDllInst == 0) {
+			_log->Log("Load hsl library fail!");
+			return;
+		}
+		connect_plc connect_plc_func = (connect_plc)GetProcAddress(hDllInst, "connect_plc");
+		if (connect_plc_func == 0) {
+			_log->Log("Load hsl library function connect_plc fail!");
+			return;
+		}
+		write_plc_bool write_plc_func = (write_plc_bool)GetProcAddress(hDllInst, "write_plc_bool");
+		if (write_plc_func == 0) {
+			_log->Log("Load hsl library function write_plc_bool fail!");
+			return;
+		}
+		disconnect_plc disconnect_plc_func = (disconnect_plc)GetProcAddress(hDllInst, "disconnect_plc");
+		if (disconnect_plc_func == 0) {
+			_log->Log("Load hsl library function write_plc_bool fail!");
+			return;
+		}
+
+		const char* addr = "w100.07";
+		int mesc = GetTickCount() % MSEC_LENGTH;
+		if (!connect_plc_func()) {
+			_log->Log("connect to plc fail!");
+			return;
+		}
+		int end_mesc = GetTickCount() % MSEC_LENGTH;
+		
+		cout << " connect mesc " << mesc << " end mesc " << end_mesc << " time " << end_mesc - mesc << endl;
+		int end_cmd = 0;
+		while (0 == end_cmd) {
+			mesc = GetTickCount() % MSEC_LENGTH;
+			if (!write_plc_func(addr, true, true)) {
+				_log->Log("write to plc fail!");
+				return;
+			}
+			end_mesc = GetTickCount() % MSEC_LENGTH;
+			cout << "write to plc mesc " << mesc << " end mesc " << end_mesc << " time " << end_mesc - mesc << endl;
+			Sleep(10);
+			mesc = GetTickCount() % MSEC_LENGTH;
+			if (!write_plc_func(addr, false, true)) {
+				_log->Log("write to plc fail!");
+				return;
+			}
+			end_mesc = GetTickCount() % MSEC_LENGTH;
+			cout << "write to plc mesc " << mesc << " end mesc " << end_mesc << " time " << end_mesc - mesc << endl;
+
+			
+			cin >> end_cmd;
+		}
+		mesc = GetTickCount() % MSEC_LENGTH;
+		if (!disconnect_plc_func()) {
+			_log->Log("disconnect fail!");
+			return;
+		}
+		end_mesc = GetTickCount() % MSEC_LENGTH;
+		cout << "disconnect mesc " << mesc << " end mesc " << end_mesc << " time " << end_mesc - mesc << endl;
 	}
 
 	void run_camera_no_delegate_no_processing() {
@@ -667,6 +747,7 @@ public:
 		}
 		return;
 	}
+	char temp_in_0[256];
 private:
 	configHelper* _ch;
 	Logger* _log;
@@ -675,17 +756,20 @@ private:
 	int _halcon_jobs_id = 0;
 	int _camera_jobs_id = 0;
 	int _camera_count = 0;
-	vector<HImage*> _captured_images;
+	base_calc_std* _calc_std;
+	commonfunction_c::DuLink<halconUtils::HImageExtraInfo*> _captured_images;
 };
 
 static LibraryLoader ll;
 
 int main(int argc, char** argv)
 {
+	HalconCpp::GetSystemTime(&system_time_msec, &system_time_sec, &system_time_min, &system_time_hour, 0, 0, 0, 0);
 	Logger l("d:");
-	Redis redis = Redis("tcp://127.0.0.1:6379");
+
 	int get_cmd_num_from_redis;
 	try {
+		Redis redis = Redis("tcp://127.0.0.1:6379");
 		StringView cmd_num_key = REDIS_COMMAND_NUMBER;
 		auto cmd_num = redis.get(cmd_num_key);
 		get_cmd_num_from_redis = BaseFunctions::Str2Int(cmd_num.value());
@@ -693,7 +777,7 @@ int main(int argc, char** argv)
 	catch (...) {
 		get_cmd_num_from_redis = -1;
 	}
-	CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&heart_beat_proc, NULL, 0, 0);
+	CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&thread_save_log, NULL, 0, 0);
 	l.Log(PROGRAM_COMPLIRE_VERSION);
 	l.Log(BaseFunctions::ws2s(BaseFunctions::GetWorkPath()));
 	std::cout << "Hello World! Welcome to library loader, pls select library by num\n";
@@ -707,6 +791,7 @@ int main(int argc, char** argv)
 	std::cout << "[7] area camera function! \n";
 	std::cout << "[8] jmj test system function! \n";
 	std::cout << "[9] xy test system function! \n";
+	std::cout << "[10] press to plc hsl ， for cy! \n";
 	while (true) {
 		if (get_cmd_num_from_redis > 0 && get_cmd_num_from_redis < 100)
 			index = get_cmd_num_from_redis;
@@ -720,6 +805,7 @@ int main(int argc, char** argv)
 			switch (index)
 			{
 			case 1:
+				CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&heart_beat_proc, NULL, 0, 0);
 				image = ll.runCameraLib();
 				break;
 			case 2:
@@ -751,6 +837,9 @@ int main(int argc, char** argv)
 				break;
 			case 9:
 				ll.run_camera_with_delegate_no_processing();
+				break;
+			case 10:
+				ll.call_plc_hsl_write_bool();
 				break;
 			default:
 				break;
@@ -785,8 +874,6 @@ int main(int argc, char** argv)
 
 void delegateFunction(char* msg) {
 	Logger l("d:");
-	l.Log("Delegate function start!"); //test log
-	l.Log(string(msg)); //test log
 	ll.lPush("to_test", msg);
 	JsonHelper jh;
 	jh.initial(string(msg));
@@ -807,14 +894,180 @@ void delegateFunction(char* msg) {
 }
 
 void camera_caputred_delegate(const char* json, HImage& image) {
-	ll.log("Delegate function start!"); //test log
-	ll.log(string(json)); //test log
+	//ll.log(string(json)); //test log
 	char* args[8];
 	char status[400];
 	strcpy_s(status, 400, json);
 	args[0] = &status[0];
 	ll.run_halcon_lib_with_delegate_image(1, args, image);
 }
+
+unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
+	HImage img0, img1, img2;
+	bool is_get_image = false;
+	configHelper ch("c:\\tizer\\config.ini", CT_JSON);
+	HINSTANCE hDllInst;
+	hDllInst = LoadLibrary(LPCTSTR(BaseFunctions::s2ws(ch.findValue("halconLibrary", string("string"))).c_str()));
+	if (hDllInst == 0) {
+		ll.log("Halcon library load error!");
+		return 0;
+	}
+	halcon_program_image_list func = NULL;
+	func = (halcon_program_image_list)GetProcAddress(hDllInst, "halconActionWithImageList");
+	if (func == 0) {
+		ll.log("Halcon function load error!");
+		return 0;
+	}
+	string setup = ll.get("Setup");
+	MeasureSize ms;
+	F0SIZE_PIXEL c0Pos;
+	F2SIZE_PIXEL c2Pos;
+	FSIZE stdSize;
+	stdSize.W = 62.534;
+	stdSize.L = 113.221;
+	stdSize.H = 31.436;
+	stdSize.H1 = 12.807;
+	stdSize.W1 = 13.884;
+	stdSize.W2 = 6.092;
+	stdSize.Ra[0] = 3;
+	stdSize.Ra[1] = 3;
+	stdSize.Rb[0] = 3;
+	stdSize.Rb[1] = 3;
+	stdSize.Rb[2] = 3;
+	stdSize.Rb[3] = 3;
+	int used_mesc = 0;
+	//调用plc， connect代码 //暂时没有
+	HINSTANCE dll_hsl_plc;
+	dll_hsl_plc = LoadLibrary(BaseFunctions::s2ws(ch.findValue("hslLibrary", string("string"))).c_str());
+	if (dll_hsl_plc == 0) {
+		ll.log("Load hsl library fail!");
+		return 0;
+	}
+	connect_plc connect_plc_func = (connect_plc)GetProcAddress(dll_hsl_plc, "connect_plc");
+	if (connect_plc_func == 0) {
+		ll.log("Load hsl library function connect_plc fail!");
+		return 0;
+	}
+	write_plc_bool write_plc_func = (write_plc_bool)GetProcAddress(dll_hsl_plc, "write_plc_bool");
+	if (write_plc_func == 0) {
+		ll.log("Load hsl library function write_plc_bool fail!");
+		return 0;
+	}
+	disconnect_plc disconnect_plc_func = (disconnect_plc)GetProcAddress(dll_hsl_plc, "disconnect_plc");
+	if (disconnect_plc_func == 0) {
+		ll.log("Load hsl library function write_plc_bool fail!");
+		return 0;
+	}
+
+	const char* ng_addr = "w100.07";
+	const char* ok_addr = "w100.09";
+	if (!connect_plc_func()) {
+		ll.log("connect to plc fail!");
+		return 0;
+	}
+
+	HImage img_fmt_0, img_fmt_2;
+	img_fmt_0.ReadImage("C:/tizer/fmt_0.jpg");
+	img_fmt_2.ReadImage("C:/tizer/fmt_2.jpg");
+	if (0 == ms.CalcCamera0(img_fmt_0, c0Pos)
+		&& 0 == ms.CalcCamera2(img_fmt_2, c2Pos)
+		)
+	{
+		if (0 == ms.SetStdSize(stdSize)) {
+			ll.log("Format image setted success!");
+		}
+		else {
+			ll.log("Format image setted fail!");
+		}
+	}
+	else {
+		ll.log("Format image setted fail!");
+	}
+	while (true) {
+		mtx.lock();
+		if (_temp_img0 != NULL && _temp_img1 != NULL && _temp_img2 != NULL) {
+			img0 = _temp_img0->get_image();
+			img1 = _temp_img1->get_image();
+			img2 = _temp_img2->get_image();
+			_temp_img0 = NULL;
+			_temp_img1 = NULL;
+			_temp_img2 = NULL;
+			is_get_image = true;
+		}
+		else {
+			is_get_image = false;
+		}
+		mtx.unlock();
+		if (!is_get_image) {
+			//不要再锁里sleep那样会一直锁
+			Sleep(20);
+			continue;
+		}
+		
+		int burr_limit = 15;
+		char* source[8];
+		//设置输入参数
+		//
+		int width = 1920; //实际参数需要参看相机情况，读取本地文件时设置为0
+		int height = 1080; // 同上
+		int polesWidth = 10;
+		source[0] = ll.temp_in_0; //status
+		source[1] = &setup[0];
+		source[2] = NULL;
+		source[3] = NULL;
+		source[4] = NULL;
+		source[5] = NULL;
+		source[6] = NULL;
+		source[7] = NULL;
+		//初始化输出参数
+		try {
+			char test[INT_HALCON_BURR_RESULT_SIZE] = { "\0" };
+			vector<HImage*> _captured_images;
+			_captured_images.push_back(&img0);
+			_captured_images.push_back(&img1);
+			_captured_images.push_back(&img2);
+			log_mtx.lock();
+			update_current_msec(1);
+			HalconCpp::GetSystemTime(&system_time_msec, &system_time_sec, &system_time_min, &system_time_hour, 0, 0, 0, 0);
+			log_mtx.unlock();
+			int result_status;
+			func(2, source, _captured_images, &test[0], ms, result_status);
+			if (result_status == 1 || result_status == 2) {
+				//需要完成plc功能 w100.07表示ng
+				write_plc_func(ng_addr, true, false);
+				Sleep(10);
+				write_plc_func(ng_addr, false, false);
+			}
+			else if (result_status == 0) {
+				write_plc_func(ok_addr, true, false);
+				Sleep(10);
+				write_plc_func(ok_addr, false, false);
+			}
+			update_current_msec(5);
+			HalconCpp::GetSystemTime(&system_time_msec, &system_time_sec,
+				&system_time_min, &system_time_hour, 0, 0, 0, 0);
+			log_mtx.lock();
+			update_current_msec(2);
+			HalconCpp::GetSystemTime(&system_time_msec, &system_time_sec, &system_time_min, &system_time_hour, 0, 0, 0, 0);
+			log_mtx.unlock();
+			ll.lPush(REDIS_WRITE_KEY, string(test));
+			log_mtx.lock();
+			update_current_msec(3);
+			HalconCpp::GetSystemTime(&system_time_msec, &system_time_sec, &system_time_min, &system_time_hour, 0, 0, 0, 0);
+			log_mtx.unlock();
+		}
+		catch (...) {
+		}
+		//std::cout << "get taichi result : " << **out << std::endl;
+
+	}
+	if (hDllInst > 0)
+		FreeLibrary(hDllInst);
+	//调用plc disconnect代码 //暂时没有
+	disconnect_plc_func();
+	return 0;
+}
+
 
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
 // 调试程序: F5 或调试 >“开始调试”菜单
