@@ -110,8 +110,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>D:\github\TizerVisionService\LibraryLoaderConsole\x64\Debug</OutDir>
-    <IncludePath>$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;D:\boost_1_76_0;$(IncludePath)</IncludePath>
-    <LibraryPath>$(HALCONROOT)\lib\$(HALCONARCH);D:\boost_1_76_0\libs;$(LibraryPath)</LibraryPath>
+    <IncludePath>..\Depend\include;..\Depend\include\halconcpp;D:\boost_1_76_0;$(IncludePath)</IncludePath>
+    <LibraryPath>..\Depend\lib\x64-win64;D:\boost_1_76_0\libs;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ConsoleInHome|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -173,7 +173,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(HALCONROOT)\lib\$(HALCONARCH)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\Depend\lib\x64-win64</AdditionalLibraryDirectories>
       <AdditionalDependencies>halconcpp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>

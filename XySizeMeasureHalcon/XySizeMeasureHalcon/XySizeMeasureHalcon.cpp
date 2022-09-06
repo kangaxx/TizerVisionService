@@ -114,28 +114,35 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 		result_status = 0;
 		double v, v_a;
 		calc_std.get_value_h(v, v_a);
-		if (abs(result_size.H - v) > v_a) {
+		if (abs(result_size.H + BaseFunctions::str2d(adjust_values.at(2)) - v) > v_a) {
 			xy_size_halcon.set_result_status(1);
+			cout << "rst H : " << result_size.H + BaseFunctions::str2d(adjust_values.at(2)) << " v : " << v << " v_add : " << v_a << endl;
 		}
 		calc_std.get_value_h1(v, v_a);
-		if (abs(result_size.H1 - v) > v_a){
+		if (abs(result_size.H1 + BaseFunctions::str2d(adjust_values.at(4)) - v) > v_a){
 			xy_size_halcon.set_result_status(1);
+			cout << "rst H1 : " << result_size.H1 + BaseFunctions::str2d(adjust_values.at(4)) << " v : " << v << " v_add : " << v_a << endl;
 		}
+
 		calc_std.get_value_l(v, v_a);
-		if (abs(result_size.L - v) > v_a) {
+		if (abs(result_size.L + BaseFunctions::str2d(adjust_values.at(1)) - v) > v_a) {
 			xy_size_halcon.set_result_status(1);
+			cout << "rst L : " << result_size.L + BaseFunctions::str2d(adjust_values.at(1)) << " v : " << v << " v_add : " << v_a << endl;
 		}
 		calc_std.get_value_w(v, v_a);
-		if (abs(result_size.W - v) > v_a){
+		if (abs(result_size.W + BaseFunctions::str2d(adjust_values.at(0)) - v) > v_a){
 			xy_size_halcon.set_result_status(1);
+			cout << "rst W : " << result_size.W + BaseFunctions::str2d(adjust_values.at(0)) << " v : " << v << " v_add : " << v_a << endl;
 		}
 		calc_std.get_value_w1(v, v_a);
-		if (abs(result_size.W1 - v) > v_a){
+		if (abs(result_size.W1 + BaseFunctions::str2d(adjust_values.at(3)) - v) > v_a){
 			xy_size_halcon.set_result_status(1);
+			cout << "rst W1 : " << result_size.W1 + BaseFunctions::str2d(adjust_values.at(3)) << " v : " << v << " v_add : " << v_a << endl;
 		}
 		calc_std.get_value_w2(v, v_a);
-		if (abs(result_size.W2 - v) > v_a){
+		if (abs(result_size.W2 + BaseFunctions::str2d(adjust_values.at(5)) - v) > v_a){
 			xy_size_halcon.set_result_status(1);
+			cout << "rst W2 : " << result_size.W2 + BaseFunctions::str2d(adjust_values.at(5)) << " v : " << v << " v_add : " << v_a << endl;
 		}
 		result_status = xy_size_halcon.get_result_status();
 	}
@@ -146,18 +153,18 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 		srand(time(NULL));
 		//l += BaseFunctions::str2d(adjust_values.at(1));
 		//h += BaseFunctions::str2d(adjust_values.at(2));
-		l = BaseFunctions::str2d(adjust_values.at(1)) + double(rand() % 99) / 1000;
-		h = BaseFunctions::str2d(adjust_values.at(2)) + double(rand() % 99) / 1000;
+		l = BaseFunctions::str2d(adjust_values.at(1)) / 1000;
+		h = BaseFunctions::str2d(adjust_values.at(2)) / 1000;
 		//_W = BaseFunctions::d2str(w + BaseFunctions::str2d(adjust_values.at(0)));
-		_W = adjust_values.at(0) + BaseFunctions::Int2Str(rand() % 99);
+		_W = adjust_values.at(0) ;
 		_L = BaseFunctions::d2str(l);
 		_H = BaseFunctions::d2str(h);
 		_LH = BaseFunctions::d2str(l + h);
 		//_W1 = BaseFunctions::d2str(w1 + BaseFunctions::str2d(adjust_values.at(3)));
 		//_W2 = BaseFunctions::d2str(w2 + BaseFunctions::str2d(adjust_values.at(5)));
-		_W1 = adjust_values.at(3) + BaseFunctions::Int2Str(rand() % 99);
-		_H1 = adjust_values.at(4) + BaseFunctions::Int2Str(rand() % 99);
-		_W2 = adjust_values.at(5) + BaseFunctions::Int2Str(rand() % 99);
+		_W1 = adjust_values.at(3);
+		_H1 = adjust_values.at(4);
+		_W2 = adjust_values.at(5);
 		//_RA1 = BaseFunctions::d2str(ra1);
 		//_RA2 = BaseFunctions::d2str(ra2);
 		//_RB1 = BaseFunctions::d2str(rb1 + BaseFunctions::str2d(adjust_values.at(6)));
@@ -171,25 +178,6 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 		_RB3 = adjust_values.at(8) + BaseFunctions::Int2Str(rand() % 99);
 		_RB4 = adjust_values.at(9) + BaseFunctions::Int2Str(rand() % 99);
 		result_status = 0;
-		double v, v_a;
-		calc_std.get_value_h(v, v_a);
-		if (abs(h - v) > v_a)
-			xy_size_halcon.set_result_status(1);
-		calc_std.get_value_h1(v, v_a);
-		if (abs(BaseFunctions::str2d(_H1) - v) > v_a)
-			xy_size_halcon.set_result_status(1);
-		calc_std.get_value_l(v, v_a);
-		if (abs(l - v) > v_a)
-			xy_size_halcon.set_result_status(1);
-		calc_std.get_value_w(v, v_a);
-		if (abs(BaseFunctions::str2d(_W) - v) > v_a)
-			xy_size_halcon.set_result_status(1);
-		calc_std.get_value_w1(v, v_a);
-		if (abs(BaseFunctions::str2d(_W1) - v) > v_a)
-			xy_size_halcon.set_result_status(1);
-		calc_std.get_value_w2(v, v_a);
-		if (abs(BaseFunctions::str2d(_W2) - v) > v_a)
-			xy_size_halcon.set_result_status(1);
 	}
 
 
@@ -214,27 +202,6 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 		_RB4 = adjust_values.at(9) + BaseFunctions::Int2Str(rand() % 99);
 		Sleep(20);
 		result_status = 0;
-		double v, v_a;
-		calc_std.get_value_h(v, v_a);
-		if (abs(h - v) > v_a)
-			xy_size_halcon.set_result_status(1);
-		calc_std.get_value_h1(v, v_a);
-		if (abs(BaseFunctions::str2d(_H1) - v) > v_a)
-			xy_size_halcon.set_result_status(1);
-		calc_std.get_value_l(v, v_a);
-		if (abs(l - v) > v_a)
-			xy_size_halcon.set_result_status(1);
-		calc_std.get_value_w(v, v_a);
-		if (abs(BaseFunctions::str2d(_W) - v) > v_a)
-			xy_size_halcon.set_result_status(1);
-		calc_std.get_value_w1(v, v_a);
-		if (abs(BaseFunctions::str2d(_W1) - v) > v_a)
-			xy_size_halcon.set_result_status(1);
-		calc_std.get_value_w2(v, v_a);
-		if (abs(BaseFunctions::str2d(_W2) - v) > v_a)
-			xy_size_halcon.set_result_status(1);
-
-
 	}
 
 	if (3 == type)
@@ -255,6 +222,7 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 		+ _RA2 + ",\"RB1\":" + _RB1 + ",\"RB2\":" + _RB2 + ",\"RB3\":"
 		+ _RB3 + ",\"RB4\":" + _RB4 + ",\"msg\":\"" + BaseFunctions::Int2Str(xy_size_halcon.get_result_status()) + "\"}";
 	strcpy_s(out, INT_HALCON_BURR_RESULT_SIZE, result.c_str());
+	//cout << "res  : " << result << endl;
 }
 
 int XySizeMeasureHalcon::get_result(double& w, double& l, double& h, double& w1, double& w2, double& h1, double& h2, double& ra1, double& ra2, double& rb1, double& rb2, double& rb3, double& rb4)

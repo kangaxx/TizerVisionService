@@ -923,12 +923,21 @@ unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 	F0SIZE_PIXEL c0Pos;
 	F2SIZE_PIXEL c2Pos;
 	FSIZE stdSize;
-	stdSize.W = 62.534;
-	stdSize.L = 113.221;
-	stdSize.H = 31.436;
-	stdSize.H1 = 12.807;
-	stdSize.W1 = 13.884;
-	stdSize.W2 = 6.092;
+	const double* fmt_value = NULL;
+	if (0 == BaseFunctions::Str2Int(ch.findValue("node_type", string("string"))))
+		fmt_value = &anode_std_size[0];
+	else if (1 == BaseFunctions::Str2Int(ch.findValue("node_type", string("string"))))
+		fmt_value = &cathode_std_size[0];
+	else {
+		ll.log("Read config node_type error!");
+		return 0L;
+	}
+	stdSize.W = fmt_value[0];
+	stdSize.L = fmt_value[1];
+	stdSize.H = fmt_value[2];
+	stdSize.H1 = fmt_value[3];
+	stdSize.W1 = fmt_value[4];
+	stdSize.W2 = fmt_value[5];
 	stdSize.Ra[0] = 3;
 	stdSize.Ra[1] = 3;
 	stdSize.Rb[0] = 3;
