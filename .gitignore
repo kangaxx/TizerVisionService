@@ -52,3 +52,5 @@ x64
 logs
 Depend
 *.log
+LibraryLoaderConsole/LibraryLoaderConsole/LibraryLoader.cpp
+LibraryLoaderConsole/LibraryLoaderConsole/LibraryLoader.h

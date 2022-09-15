@@ -87,7 +87,7 @@ public:
 	bool is_trigger_mode() { return _trigger_mode; }
 	void set_trigger_mode(bool value) { _trigger_mode = value; }
 private:
-	void camera_capture(int camera_num_in_list, int camera_id); //触发拍摄模式，该模式下一次性启动全部相机，并且不在capture方法内返回图像
+	bool camera_capture(int camera_num_in_list, int camera_id); //触发拍摄模式，该模式下一次性启动全部相机，并且不在capture方法内返回图像
 	HikCameraDevice() {} //暂时不允许无参数的构建函数
 	Logger* _log = nullptr;
 	HikCameraInfo* _camera_infos;

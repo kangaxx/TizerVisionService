@@ -37,7 +37,6 @@ VirtualCameraDevice::VirtualCameraDevice(const char* config)
 		set_capture_type(false);
 	int image_id = 0;
 	while (image_id < _image_count && image_id < MAX_VIRTUAL_CAMERA_COUNT) {
-		HImage temp_image;
 		ReadImage(&image_list[image_id], _image_files.at(image_id < _image_count ? image_id : _image_count - 1).c_str());
 		image_id++;
 	}

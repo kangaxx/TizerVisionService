@@ -85,7 +85,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>D:\github\TizerVisionService\LibraryLoaderConsole\x64\Debug</OutDir>
+    <OutDir>D:\github\TizerVisionService\LibraryLoaderConsole\x64\Release</OutDir>
     <IncludePath>D:\boost_1_76_0;$(HALCONROOT)\include;$(HALCONROOT)\include\halconcpp;$(IncludePath)</IncludePath>
     <LibraryPath>D:\boost_1_76_0\libs;$(HALCONROOT)\lib\$(HALCONARCH);$(LibraryPath)</LibraryPath>
   </PropertyGroup>

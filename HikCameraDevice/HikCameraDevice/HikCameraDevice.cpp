@@ -7,10 +7,9 @@ void __stdcall ImageCallBackEx(unsigned char* pData, MV_FRAME_OUT_INFO_EX* pFram
 		unsigned short width, height;
 		width = pFrameInfo->nWidth;
 		height = pFrameInfo->nHeight;
-		printf("Get One Frame: Width[%d], Height[%d], nFrameNum[%d]\n",
-			width, height, pFrameInfo->nFrameNum);
-		HObject ho_image = halconUtils::HalconUtils::char_to_halcon_image((char*)pData, width, height);
-		HImage image = (HImage)ho_image;
+		//printf("Get One Frame: Width[%d], Height[%d], nFrameNum[%d]\n",
+		//	width, height, pFrameInfo->nFrameNum);
+		HImage image = (HImage)(halconUtils::HalconUtils::char_to_halcon_image((char*)pData, width, height));
 		char json[256];
 		sprintf_s(json, 256, "{\"job_id\":%d, \"camera_id\":%d, \"msec\":%d}",
 			((HikCameraInfo*)pUser)->get_captured_id(),
@@ -55,15 +54,18 @@ void HikCameraInfo::initial()
 
 HikCameraDevice::HikCameraDevice(const char* config)
 {
+	
 	_config = string(config);
 	JsonHelper jh(config);
 #ifndef DEBUG_WORK_PATH
-	string log_dir = BaseFunctions::ws2s(BaseFunctions::GetWorkPath()) + jh.search("log_dir");
+	string log_dir = BaseFunctions::ws2s(BaseFunctions::GetWorkPath()) + "\\" + jh.search("log_dir");
 #else
-	string log_dir = DEBUG_WORK_PATH + jh.search("log_dir");
+	string log_dir = DEBUG_WORK_PATH + "\\" + jh.search("log_dir");
 #endif
    	_log = new Logger(log_dir);
 	_log->Log("HikRobot camera library version " + string(STR_VER_FULL_RC));
+	_log->Log("HikRobot camera library config " + string(config));
+
 	string mode = jh.search("trigger_mode");
 	if (mode.find("true") != mode.npos)
 		set_trigger_mode(true);
@@ -81,7 +83,7 @@ HikCameraDevice::HikCameraDevice(const char* config)
 	}
 }
 
-void HikCameraDevice::camera_capture(int camera_num_in_list, int camera_id) {
+bool HikCameraDevice::camera_capture(int camera_num_in_list, int camera_id) {
 	try {
 		int nRet;
 		void* handle = NULL;
@@ -89,11 +91,13 @@ void HikCameraDevice::camera_capture(int camera_num_in_list, int camera_id) {
 		if (MV_OK != nRet)
 		{
 			printf("Create Handle fail! nRet [0x%x]\n", nRet);
+			return false;
 		}
 		nRet = MV_CC_OpenDevice(handle);
 		if (MV_OK != nRet)
 		{
 			printf("Open Device fail! nRet [0x%x]\n", nRet);
+			return false;
 		}
 
 		// ch:探测网络最佳包大小(只对GigE相机有效) | en:Detection network optimal package size(It only works for the GigE camera)
@@ -126,6 +130,7 @@ void HikCameraDevice::camera_capture(int camera_num_in_list, int camera_id) {
 		if (MV_OK != nRet)
 		{
 			printf("Set Trigger Mode fail! nRet [0x%x]\n", nRet);
+			return false;
 		}
 
 		// ch:注册抓图回调 | en:Register image callback
@@ -135,6 +140,7 @@ void HikCameraDevice::camera_capture(int camera_num_in_list, int camera_id) {
 		if (MV_OK != nRet)
 		{
 			printf("Register Image CallBack fail! nRet [0x%x]\n", nRet);
+			return false;
 		}
 
 		// ch:开始取流 | en:Start grab image
@@ -142,9 +148,10 @@ void HikCameraDevice::camera_capture(int camera_num_in_list, int camera_id) {
 		if (MV_OK != nRet)
 		{
 			printf("Start Grabbing fail! nRet [0x%x]\n", nRet);
+			return false;
 		}
 		//使用回调函数时停止后续操作，否则无法开发多相机同时回调
-		return; 
+		return true; 
 		//回调函数保存到himage后，会修改captured 状态
 		while (!camera_info->is_captured()) {
 			//没有获取到照片就会一直等待
@@ -154,6 +161,7 @@ void HikCameraDevice::camera_capture(int camera_num_in_list, int camera_id) {
 		if (MV_OK != nRet)
 		{
 			printf("Stop Grabbing fail! nRet [0x%x]\n", nRet);
+			return false;
 		}
 
 		// ch:注销抓图回调 | en:Unregister image callback
@@ -176,11 +184,11 @@ void HikCameraDevice::camera_capture(int camera_num_in_list, int camera_id) {
 		{
 			printf("Destroy Handle fail! nRet [0x%x]\n", nRet);
 		}
-		return;
+		return true;
 	}
 	catch (...) {
 		_log->Log("Error ,catched by camera capture.");
-		return;
+		return false;
 	}
 }
 
@@ -196,22 +204,26 @@ bool HikCameraDevice::do_capture(int index, HalconCpp::HImage& image)
 				char strUserName[256];
 				if (strcmp(_camera_names.at(j).c_str(), (char*)_device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chSerialNumber) != 0)
 				{
-					sprintf_s(strUserName, 256, "Dev[%d]:%s %s (%s)", i, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chUserDefinedName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chModelName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chSerialNumber);
-
+					//相机不在列表内
+					//sprintf_s(strUserName, 256, "Dev[%d]:%s %s (%s)", i, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chUserDefinedName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chModelName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chSerialNumber);
 				}
 				else
 				{
 					sprintf_s(strUserName, 256, "Dev[%d]:%s %s (%s)", i, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chUserDefinedName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chModelName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chSerialNumber);
 					camera_num_in_list = i;
 					_log->Log(strUserName);
-					camera_capture(camera_num_in_list, j);
-
+					if (!camera_capture(camera_num_in_list, j)) {
+						_log->Log("Camera start fail!");
+						return false;
+					}
 				}
 			}
 			if (camera_num_in_list < 0 || camera_num_in_list >= _camera_count) {
-				_log->Log("Camera not found , pls check config file!");
+				_log->Log("Camera name setup failed , pls check config file!");
+				return false;
 			}
 		}
+		_log->Log("Camera start success!");
 		return true;
 	}
 	catch (...) {

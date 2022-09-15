@@ -5,8 +5,8 @@
 #define CURRENT_CALIB_MODE CALIB_MODE_STATIC_VALUE
 #define CALIB_TRANS_VALUE 29.2
 
-static JsonHelper* g_jh_calib = NULL;
 static int g_id = 0;
+static int g_image_saved_count = 0; //每10次存一张图，否则太卡
 void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list, char* out, MeasureSize& ms, int& result_status)
 {
 
@@ -41,22 +41,17 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 	double w, l, h, w1, w2, h1, h2, ra1, ra2, rb1, rb2, rb3, rb4;
 	XySizeMeasureHalcon xy_size_halcon(in[0], image_list);
 	xy_size_halcon._image_lt = *image_list.at(0);
-	xy_size_halcon._image_lb = *image_list.at(1);
-	xy_size_halcon._image_r = *image_list.at(2);
+	xy_size_halcon._image_r = *image_list.at(1);
 	/*特别调试模式， 多线程模式下
 	char file_name_la[40], file_name_ra[40];
 	xy_size_halcon._image_lt.WriteImage("jpg", 0, file_name_la);
 	xy_size_halcon._image_r.WriteImage("jpg", 0, file_name_ra);
 */
-	if (NULL == g_jh_calib) {
-		g_jh_calib = new JsonHelper();
-		g_jh_calib->initialByFile("c:\\tizer\\xy_size.calib");
-	}
-	//jh_calib.initial(XINYU_VIRTUAL_VALUES);
+	JsonHelper jh_calib(in[2]);
 	vector<string> adjust_values;
-	int adj_values = g_jh_calib->read_array<string>("adjust_values", adjust_values);
-	int save_image_type = BaseFunctions::Str2Int(g_jh_calib->search("save_image"));
-	int type = BaseFunctions::Str2Int(g_jh_calib->search("type"));
+	int adj_values = jh_calib.read_array<string>("adjust_values", adjust_values);
+	int save_image_type = BaseFunctions::Str2Int(jh_calib.search("save_image"));
+	int type = BaseFunctions::Str2Int(jh_calib.search("type"));
 	if (adj_values <= 0)
 		cout << "Error, read calibration file fail!" << endl;
 	
@@ -210,11 +205,14 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 	//如果type不等于任何数字就会直接返回全0
 
 	if (save_image_type <= xy_size_halcon.get_result_status()) {
-		char file_name_l[40], file_name_r[40];
-		sprintf_s(file_name_l, 40, "D:/Images/xy_image_t%d_at_0_%d.jpg", xy_size_halcon.get_result_status(), xy_size_halcon.get_job_id());
-		xy_size_halcon._image_lt.WriteImage("jpg", 0, file_name_l);
-		sprintf_s(file_name_r, 40, "D:/Images/xy_image_t%d_at_2_%d.jpg", xy_size_halcon.get_result_status(), xy_size_halcon.get_job_id());
-		xy_size_halcon._image_r.WriteImage("jpg", 0, file_name_r);
+		if (2 > save_image_type || 0 == g_image_saved_count % 5) {
+			char file_name_l[40], file_name_r[40];
+			sprintf_s(file_name_l, 40, "D:/Images/xy_image_t%d_at_0_%d.jpg", xy_size_halcon.get_result_status(), xy_size_halcon.get_job_id());
+			sprintf_s(file_name_r, 40, "D:/Images/xy_image_t%d_at_2_%d.jpg", xy_size_halcon.get_result_status(), xy_size_halcon.get_job_id());
+			xy_size_halcon._image_lt.WriteImage("jpg", 0, file_name_l);
+			xy_size_halcon._image_r.WriteImage("jpg", 0, file_name_r);
+		}
+		g_image_saved_count++;
 	}
 	string result = "{\"id\":" + BaseFunctions::Int2Str(xy_size_halcon.get_job_id()) + ",\"W\":" + _W + ",\"L\":" + _L
 		+ ",\"H\":" + _H + ",\"LH\":" + _LH + ",\"W1\":" + _W1 + ",\"W2\":"
@@ -222,7 +220,7 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 		+ _RA2 + ",\"RB1\":" + _RB1 + ",\"RB2\":" + _RB2 + ",\"RB3\":"
 		+ _RB3 + ",\"RB4\":" + _RB4 + ",\"msg\":\"" + BaseFunctions::Int2Str(xy_size_halcon.get_result_status()) + "\"}";
 	strcpy_s(out, INT_HALCON_BURR_RESULT_SIZE, result.c_str());
-	//cout << "res  : " << result << endl;
+	cout << "res  : " << result << endl;
 }
 
 int XySizeMeasureHalcon::get_result(double& w, double& l, double& h, double& w1, double& w2, double& h1, double& h2, double& ra1, double& ra2, double& rb1, double& rb2, double& rb3, double& rb4)
