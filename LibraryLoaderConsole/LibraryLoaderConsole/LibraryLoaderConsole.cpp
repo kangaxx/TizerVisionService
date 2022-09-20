@@ -903,6 +903,7 @@ unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 		}
 
 		HImage img_fmt_0, img_fmt_2;
+		mtx.lock();
 		img_fmt_0.ReadImage("C:/tizer/fmt_0.jpg");
 		img_fmt_2.ReadImage("C:/tizer/fmt_2.jpg");
 		if (0 == ms.CalcCamera0(img_fmt_0, c0Pos)
@@ -919,6 +920,7 @@ unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 		else {
 			ll.log("Format image setted fail!");
 		}
+		mtx.unlock();
 		string offsets = ll.get("Offsets");
 		while (true) {
 			mtx.lock();
