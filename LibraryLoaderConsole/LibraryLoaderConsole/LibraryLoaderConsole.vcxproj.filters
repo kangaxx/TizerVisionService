@@ -24,6 +24,12 @@
     <ClCompile Include="..\..\..\hds\MeasureSize.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="LibraryLoaderMT.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hds\ConcurrentLogger.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\hds\common.h">
@@ -39,6 +45,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\hds\tz_project_common.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="LibraryLoaderMT.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\hds\ConcurrentLogger.h">

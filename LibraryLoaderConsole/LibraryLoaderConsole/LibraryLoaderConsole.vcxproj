@@ -243,8 +243,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\hds\ConcurrentLogger.cpp" />
     <ClCompile Include="..\..\..\hds\MeasureSize.cpp" />
     <ClCompile Include="LibraryLoaderConsole.cpp" />
+    <ClCompile Include="LibraryLoaderMT.cpp" />
     <ClCompile Include="SerialPort.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -253,6 +255,7 @@
     <ClInclude Include="..\..\..\hds\JsonHelper.h" />
     <ClInclude Include="..\..\..\hds\MeasureSize.h" />
     <ClInclude Include="..\..\..\hds\tz_project_common.h" />
+    <ClInclude Include="LibraryLoaderMT.h" />
     <ClInclude Include="ModBus\config.h" />
   </ItemGroup>
   <ItemGroup>

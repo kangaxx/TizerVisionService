@@ -1,29 +1,18 @@
 // LibraryLoaderConsole.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
 //
-
-#include <redis++.h>
-#include <cstdio>
-#include <unordered_set>
-#include <stdio.h>
-#include <iostream>
-#include <Windows.h>
-#include <UserEnv.h>
-
+#include "LibraryLoaderMT.h"
 #include "../../../hds/common.h"
 #include "../../../hds/commonfunction_c.h"
 #include "../../../hds/serialization_c11.h"
 #include "../../../hds/FastDelegate.h"
-#include "../../../hds/halconUtils.h"
 #include "../../../hds/Logger.h"
 #include "../../../hds/configHelper.h"
 #include "../../../hds/JsonHelper.h"
 #include "../../../hds/CameraHelper.h"
 #include "../../../hds/MeasureSize.h"
 #include "../../../hds/tz_project_common.h"
-
 #include "SerialPort.h"
-#define WINDING_NG_RESULT_KEY "IsNg"
-#define WINDING_NG_RESULT_ISNG "0"
+
 using namespace fastdelegate;
 using namespace HalconCpp;
 using namespace sw::redis;
@@ -53,7 +42,7 @@ static halconUtils::HImageExtraInfo* _temp_img0 = NULL;
 static halconUtils::HImageExtraInfo* _temp_img1 = NULL;
 static HTuple system_time_hour, system_time_min, system_time_sec, system_time_msec;
 //#define DEBUG_WORK_PATH "Z:\\TizerVisionService\\LibraryLoaderConsole\\x64\\Debug\\" //代码调试模式下工作目录
-#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20719.11"
+#define PROGRAM_COMPLIRE_VERSION "Console program, version 1.20920.17"
 
 #ifdef PYLON_WIN_BUILD
 #   include <pylon/PylonGUI.h>
@@ -139,30 +128,7 @@ void switchTrigger485(int port)
 
 //循环读取redis列表看看前台有没有数据返回
 
-unsigned long readRedisProc(void* lpParameter) {
-	Logger l("d:");
-	l.Log("start read Redis proc");
-	Redis redis = Redis("tcp://127.0.0.1:6379");
-	StringView key = REDIS_READ_KEY;
-	while (true) {
-		try {
-			auto value = redis.rpop(key);
-			l.Log(value.value());
-			JsonHelper jh(value.value());
-			cout << "is ng pos :" << jh.search(WINDING_NG_RESULT_KEY).find(WINDING_NG_RESULT_ISNG) << endl;
-			if (jh.search(WINDING_NG_RESULT_KEY).find(WINDING_NG_RESULT_ISNG) == 0)
-				switchTrigger485(ELECTRIC_RELAY_COM_NUM);
-		}
-		catch (char* err) {
-			l.Log(err);
-		}
-		catch (...) {
-			//do nothing
-		}
-		Sleep(2000);
-	}//while
-	return 0;
-}
+
 unsigned long thread_save_log(void* lpParameter) {
 	int old_msec = 0;
 	int used_time;
@@ -218,22 +184,6 @@ unsigned long thread_save_log(void* lpParameter) {
 		}
 		else
 			Sleep(1);
-	}
-	return 0;
-}
-unsigned long heart_beat_proc(void* lpParameter) {
-	int num = 0;
-	char value[6];
-	StringView key = "heartbeat";
-	while (true) {
-		if (num > 9999)
-			num = 0;
-		Redis redis = Redis("tcp://127.0.0.1:6379");
-		commonfunction_c::BaseFunctions::Int2Chars(num, value);
-		StringView val = value;
-		redis.set(key, val);
-		Sleep(2000);
-		num++;
 	}
 	return 0;
 }
@@ -381,158 +331,9 @@ public:
 		return;
 	}
 
-	//读取相机动态链接库
-	HImage runCameraLib() {
-		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&readRedisProc, NULL, 0, 0);
-		HINSTANCE hDllInst;
-		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
-		Logger l("d:");
-		StringView key = REDIS_LIST_CALIBRATION_KEY;
-		Redis redis = Redis("tcp://127.0.0.1:6379");
-		auto value = redis.get(key);
-		l.Log(value.value());
-		try {
-			JsonHelper jh(value.value());
-			calibration_line_top_ = BaseFunctions::Str2Int(jh.search(JSON_CALIBRATION_TOP_KEY), 0);
-			calibration_line_bottom_ = BaseFunctions::Str2Int(jh.search(JSON_CALIBRATION_BOTTOM_KEY), 1);
-			camera_width_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_WIDTH), 1920);
-			camera_height_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_HEIGHT), 1080);
-			package_delay_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_PACKAGE_DELAY), 1000);
-			package_size_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_PACKAGE_SIZE), 7000);
-			exposure_time_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_EXPOSURE_TIME), 3000);
-			center_ = BaseFunctions::Str2Int(jh.search(JSON_CAMERA_PARAM_CENTER), 3000);
-			param_num_ = STANDARD_CAMERA_MODE;
-
-		}
-		catch (...) {
-			calibration_line_top_ = 0;
-			calibration_line_bottom_ = 0;
-			l.Log("Calibarton line value read error!"); //test log
-			param_num_ = 1;
-		}
-		l.Log(ch.findValue("cameraLibrary", string("string")));
-		hDllInst = LoadLibrary(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str());
-		if (hDllInst == 0) {
-			throw "Load camera library failed!";
-		}
-		cameraWork cameraWorkFunc = NULL;
-		cameraWorkFunc = (cameraWork)GetProcAddress(hDllInst, "cameraWorker");
-		if (cameraWorkFunc == 0) {
-			FreeLibrary(hDllInst);
-			throw "Load camera library function failed!";
-		}
-		setHalconFunction setFunc = NULL;
-		setFunc = (setHalconFunction)GetProcAddress(hDllInst, "setHalconFunction");
-		if (setFunc == 0) {
-			FreeLibrary(hDllInst);
-			throw "Load camera library set halcon function failed!";
-		}
-		//测试委托
-		setFunc(delegateFunction);
-		string cameraLeftName = ch.findValue("cameraLeftName", string("string"));
-		string cameraMidName = ch.findValue("cameraMidName", string("string"));
-		string cameraRightName = ch.findValue("cameraRightName", string("string"));
-		char* in[10];
-		char leftCamera[50], midCamera[50], rightCamera[50], camera_width[10], camera_height[10], package_delay[10],
-			package_size[10], exposure_time[10], center[10], param_num[5];
-		strcpy_s(leftCamera, cameraLeftName.c_str());
-		strcpy_s(midCamera, cameraMidName.c_str());
-		strcpy_s(rightCamera, cameraRightName.c_str());
-		commonfunction_c::BaseFunctions::Int2Chars(camera_width_, camera_width);
-		commonfunction_c::BaseFunctions::Int2Chars(camera_height_, camera_height);
-		commonfunction_c::BaseFunctions::Int2Chars(package_delay_, package_delay);
-		commonfunction_c::BaseFunctions::Int2Chars(package_size_, package_size);
-		commonfunction_c::BaseFunctions::Int2Chars(center_, center);
-		commonfunction_c::BaseFunctions::Int2Chars(exposure_time_, exposure_time);
-		commonfunction_c::BaseFunctions::Int2Chars(param_num_, param_num);
-		in[0] = &param_num[0];
-		in[1] = &leftCamera[0];
-		in[2] = &midCamera[0];
-		in[3] = &rightCamera[0];
-		in[4] = &camera_width[0];
-		in[5] = &camera_height[0];
-		in[6] = &package_delay[0];
-		in[7] = &package_size[0];
-		in[8] = &center[0];
-		in[9] = &exposure_time[0];
-		HImage image = cameraWorkFunc(0, in);
-		return image;
-	}
-
-	//读取相机动态链接库
-	HImage run_msa_test() {
-		HINSTANCE hDllInst;
-		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
-		Logger l("d:");
-		param_num_ = MSA_NO_TRIGGER_CAMERA_MODE;
-
-		l.Log(ch.findValue("cameraLibrary", string("string")));
-		hDllInst = LoadLibrary(BaseFunctions::s2ws(ch.findValue("cameraLibrary", string("string"))).c_str());
-		if (hDllInst == 0) {
-			throw "Load camera library failed!";
-		}
-		cameraWork cameraWorkFunc = NULL;
-		cameraWorkFunc = (cameraWork)GetProcAddress(hDllInst, "cameraWorker");
-		if (cameraWorkFunc == 0) {
-			FreeLibrary(hDllInst);
-			throw "Load camera library function failed!";
-		}
-		setHalconFunction setFunc = NULL;
-		setFunc = (setHalconFunction)GetProcAddress(hDllInst, "setHalconFunction");
-		if (setFunc == 0) {
-			FreeLibrary(hDllInst);
-			throw "Load camera library set halcon function failed!";
-		}
-		//测试委托
-		setFunc(delegateFunction);
-		string cameraLeftName = ch.findValue("cameraLeftName", string("string"));
-		string cameraMidName = ch.findValue("cameraMidName", string("string"));
-		string cameraRightName = ch.findValue("cameraRightName", string("string"));
-		char* in[9];
-		char leftCamera[50], midCamera[50], rightCamera[50], camera_width[10], camera_height[10], package_delay[10],
-			package_size[10], exposure_time[10], center[10], param_num[5];
-		strcpy_s(leftCamera, cameraLeftName.c_str());
-		strcpy_s(midCamera, cameraMidName.c_str());
-		strcpy_s(rightCamera, cameraRightName.c_str());
-
-		commonfunction_c::BaseFunctions::Int2Chars(param_num_, param_num);
-		in[0] = &param_num[0];
-		in[1] = &leftCamera[0];
-		in[2] = &midCamera[0];
-		in[3] = &rightCamera[0];
-		HImage image = cameraWorkFunc(0, in);
-		return image;
-	}
-
-
-	void run_area_camera_function() {
-		HINSTANCE hDllInst;
-		param_num_ = MSA_NO_TRIGGER_CAMERA_MODE;
-		_log->Log(_ch->findValue("cameraLibrary", string("string")));
-		hDllInst = LoadLibrary(BaseFunctions::s2ws(_ch->findValue("cameraLibrary", string("string"))).c_str());
-		if (hDllInst == 0) {
-			throw "Load camera library failed!";
-		}
-		get_camera_devices get_camera_devices_func = NULL;
-		get_camera_devices_func = (get_camera_devices)GetProcAddress(hDllInst, "get_camera_devices");
-		if (get_camera_devices_func == 0) {
-			FreeLibrary(hDllInst);
-			throw "Load camera library function [get_camera_devices_func] failed!";
-		}
-		string camera_devices_info = _ch->findValue("camera_devices_info", string("string"));
-		_log->Log(camera_devices_info);
-		CameraDevicesBase* devices = get_camera_devices_func(camera_devices_info.c_str());
-		//test do capture
-		HImage image_test;
-		int num = devices->get_devices_num();
-		for (int i = 0; i < num; ++i) {
-			devices->do_capture(0, image_test);
-		}
-		return;
-	}
 
 	HImage runCalibrationCameraLib() {
-		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&readRedisProc, NULL, 0, 0);
+		//CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&readRedisProc, NULL, 0, 0);
 		param_num_ = STANDARD_CAMERA_MODE;
 		HINSTANCE hDllInst;
 		configHelper ch("c:\\tizer\\config.ini", CT_JSON);
@@ -814,6 +615,7 @@ void camera_caputred_delegate(const char* json, HImage& image) {
 	args[0] = &status[0];
 	ll.run_halcon_lib_with_delegate_image(1, args, image);
 }
+//调用算法程序（通过相机回调）
 unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 	try {
 		HImage img0, img1;
@@ -836,14 +638,14 @@ unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 		string setup = ll.get("Setup");
 		vector<double> params;
 		int params_count = jh.read_array("camera_parameters", params);
-		if (params_count != 14) {
+		if (params_count != 16) {
 			ll.log("Error: halcon params count out of range!");
 			return 0;
 		}
-		//MeasureSize ms(params.at(0), params.at(1), params.at(2), params.at(3),
-		//	params.at(4), params.at(5), params.at(6), params.at(7), params.at(8),
-		//	params.at(9), params.at(10), params.at(11), params.at(12), params.at(13));
-		MeasureSize ms;
+		MeasureSize ms(params.at(0), params.at(1), params.at(2), params.at(3),
+			params.at(4), params.at(5), params.at(6), params.at(7), params.at(8),
+			params.at(9), params.at(10), params.at(11), params.at(12), params.at(13), params.at(14), params.at(15));
+		//MeasureSize ms;
 		F0SIZE_PIXEL c0Pos;
 		F2SIZE_PIXEL c2Pos;
 		FSIZE stdSize;
@@ -995,7 +797,8 @@ unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 				ll.lPush(REDIS_WRITE_KEY, string(test));
 
 			}
-			catch (...) {
+			catch (exception e) {
+				cout << e.what() << endl;
 			}
 			//std::cout << "get taichi result : " << **out << std::endl;
 		}
@@ -1005,14 +808,21 @@ unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 		disconnect_plc_func();
 		return 0;
 	}
-	catch (...) {
-		ll.log("Halcon thread stop exception!");
+	catch (HException& exception)
+	{
+		fprintf(stderr, "  Error #%u in %s: %s\n", exception.ErrorCode(),
+			exception.ProcName().TextA(),
+			exception.ErrorMessage().TextA());
+	}
+	catch (exception e) {
+		ll.log(e.what());
 		return 1;
 	}
 }
 
 int main(int argc, char** argv)
 {
+	LibraryLoaderMT llmt;
 	HalconCpp::GetSystemTime(&system_time_msec, &system_time_sec, &system_time_min, &system_time_hour, 0, 0, 0, 0);
 	update_current_msec(0);
 	int get_cmd_num_from_redis;
@@ -1034,8 +844,6 @@ int main(int argc, char** argv)
 	std::cout << "[3] create calibration file! \n";
 	std::cout << "[4] grab calibration image! \n";
 	std::cout << "[5] concat image manual, ONLY IN DEBUG MODE! \n";
-	std::cout << "[6] msa test! \n";
-	std::cout << "[7] area camera function! \n";
 	std::cout << "[8] jmj test system function! \n";
 	std::cout << "[9] xy test system function! \n";
 	while (true) {
@@ -1050,8 +858,7 @@ int main(int argc, char** argv)
 			switch (index)
 			{
 			case 1:
-				CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&heart_beat_proc, NULL, 0, 0);
-				image = ll.runCameraLib();
+				llmt.call_library_by_num(index);
 				break;
 			case 2:
 				char* args[8];
@@ -1070,23 +877,17 @@ int main(int argc, char** argv)
 			case 5:
 				ll.run_manual_concat_image();
 				break;
-			case 6:
-				//run msa test
-				ll.run_msa_test();
-				break;
-			case 7:
-				ll.run_area_camera_function();
-				break;
 			case 8:
 				ll.run_camera_no_delegate_no_processing();
 				break;
 			case 9:
 				ll.run_camera_with_delegate_no_processing();
 				break;
-			case 10:
-				ll.call_plc_hsl_write_bool();
+			case CMD_NUM_FOR_LIB_LOADER_PLC_DEBUG:
+				llmt.call_library_by_num(index);
 				break;
 			default:
+				llmt.call_library_by_num(index);
 				break;
 			}
 		}

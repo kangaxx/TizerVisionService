@@ -59,7 +59,7 @@ bool VirtualCameraDevice::do_capture(int index, HalconCpp::HImage& image)
 				if (i == _camera_count - 1)
 					job_id++;
 				g_delegate_function(json, image_list[image_id++]);
-				Sleep(15);
+				Sleep(2);
 			}
 		}
 	else

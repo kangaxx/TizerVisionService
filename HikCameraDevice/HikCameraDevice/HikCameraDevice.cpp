@@ -81,6 +81,8 @@ HikCameraDevice::HikCameraDevice(const char* config)
 		_log->Log("EnumDevicesByGenTL fail");
 		return;
 	}
+	_log->Log("Detect camera num : " + commonfunction_c::BaseFunctions::Int2Str(_device_list.nDeviceNum) + " and config camera name num :" + BaseFunctions::Int2Str(_camera_count));
+	return;
 }
 
 bool HikCameraDevice::camera_capture(int camera_num_in_list, int camera_id) {
@@ -122,6 +124,7 @@ bool HikCameraDevice::camera_capture(int camera_num_in_list, int camera_id) {
 		if (is_trigger_mode()) {
 			nRet = MV_CC_SetEnumValue(handle, "TriggerMode", MV_TRIGGER_MODE_ON);
 			MV_CC_SetEnumValue(handle, "TriggerSource", MV_TRIGGER_SOURCE_LINE0);
+
 		}
 		else {
 			nRet = MV_CC_SetEnumValue(handle, "TriggerMode", MV_TRIGGER_MODE_OFF);
@@ -202,23 +205,46 @@ bool HikCameraDevice::do_capture(int index, HalconCpp::HImage& image)
 			for (unsigned int i = 0; i < _device_list.nDeviceNum; i++)
 			{
 				char strUserName[256];
-				if (strcmp(_camera_names.at(j).c_str(), (char*)_device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chSerialNumber) != 0)
-				{
-					//相机不在列表内
-					//sprintf_s(strUserName, 256, "Dev[%d]:%s %s (%s)", i, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chUserDefinedName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chModelName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chSerialNumber);
-				}
-				else
-				{
-					sprintf_s(strUserName, 256, "Dev[%d]:%s %s (%s)", i, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chUserDefinedName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chModelName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chSerialNumber);
-					camera_num_in_list = i;
-					_log->Log(strUserName);
-					if (!camera_capture(camera_num_in_list, j)) {
-						_log->Log("Camera start fail!");
-						return false;
+				if (_device_list.pDeviceInfo[i]->nTLayerType == MV_USB_DEVICE) {
+					if (strcmp(_camera_names.at(j).c_str(), (char*)_device_list.pDeviceInfo[i]->SpecialInfo.stUsb3VInfo.chSerialNumber) != 0)
+					{
+						//相机不在列表内
+						//sprintf_s(strUserName, 256, "U3V Dev[%d]:%s %s (%s), un-configed !", i, _device_list.pDeviceInfo[i]->SpecialInfo.stUsb3VInfo.chUserDefinedName, _device_list.pDeviceInfo[i]->SpecialInfo.stUsb3VInfo.chModelName, _device_list.pDeviceInfo[i]->SpecialInfo.stUsb3VInfo.chSerialNumber);
+						//_log->Log(strUserName);
+					}
+					else
+					{
+						sprintf_s(strUserName, 256, "U3V Dev[%d]:%s %s (%s)", i, _device_list.pDeviceInfo[i]->SpecialInfo.stUsb3VInfo.chUserDefinedName, _device_list.pDeviceInfo[i]->SpecialInfo.stUsb3VInfo.chModelName, _device_list.pDeviceInfo[i]->SpecialInfo.stUsb3VInfo.chSerialNumber);
+						camera_num_in_list = i;
+						_log->Log(strUserName);
+						if (!camera_capture(camera_num_in_list, j)) {
+							_log->Log("Camera start fail!");
+							return false;
+						}
 					}
 				}
+				else if (_device_list.pDeviceInfo[i]->nTLayerType == MV_GIGE_DEVICE) {
+					if (strcmp(_camera_names.at(j).c_str(), (char*)_device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chSerialNumber) != 0)
+					{
+						//相机不在列表内
+						//sprintf_s(strUserName, 256, "GIGE Dev[%d]:%s %s (%s), un-configed !", i, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chUserDefinedName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chModelName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chSerialNumber);
+						//_log->Log(strUserName);
+					}
+					else
+					{
+						sprintf_s(strUserName, 256, "GIGE Dev[%d]:%s %s (%s)", i, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chUserDefinedName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chModelName, _device_list.pDeviceInfo[i]->SpecialInfo.stGigEInfo.chSerialNumber);
+						camera_num_in_list = i;
+						_log->Log(strUserName);
+						if (!camera_capture(camera_num_in_list, j)) {
+							_log->Log("Camera start fail!");
+							return false;
+						}
+					}
+				}
+
+				
 			}
-			if (camera_num_in_list < 0 || camera_num_in_list >= _camera_count) {
+			if (camera_num_in_list < 0 || camera_num_in_list > _camera_count) {
 				_log->Log("Camera name setup failed , pls check config file!");
 				return false;
 			}

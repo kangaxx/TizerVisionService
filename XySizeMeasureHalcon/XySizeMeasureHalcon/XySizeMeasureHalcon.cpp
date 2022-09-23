@@ -144,7 +144,7 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 
 
 	//gxx的算法
-	if (1 == type && XINYU_IMAGE_MEASURE_RESULT_FAIL != xy_size_halcon.get_result(w, l, h, w1, w2, h1, h2, ra1, ra2, rb1, rb2, rb3, rb4)) {
+	if (3 == type && XINYU_IMAGE_MEASURE_RESULT_FAIL != xy_size_halcon.get_result(w, l, h, w1, w2, h1, h2, ra1, ra2, rb1, rb2, rb3, rb4)) {
 		srand(time(NULL));
 		//l += BaseFunctions::str2d(adjust_values.at(1));
 		//h += BaseFunctions::str2d(adjust_values.at(2));
@@ -198,9 +198,38 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 		Sleep(20);
 		result_status = 0;
 	}
-
-	if (3 == type)
+	//3台高速相机调试算法
+	if (1 == type) {
+		srand(time(NULL));
+		double no_use;
+		calc_std.get_value_l(l, no_use);
+		calc_std.get_value_h(h, no_use);
+		calc_std.get_value_h1(h1, no_use);
+		calc_std.get_value_w(w, no_use);
+		calc_std.get_value_w1(w1, no_use);
+		calc_std.get_value_w2(w2, no_use);
+		l += double(rand() % 9) / 1000;
+		h += double(rand() % 9) / 1000;
+		h1 += double(rand() % 9) / 1000;
+		w += double(rand() % 9) / 1000;
+		w1 += double(rand() % 9) / 1000;
+		w2 += double(rand() % 9) / 1000;
+		_W = BaseFunctions::d2str(w);
+		_L = BaseFunctions::d2str(l);
+		_H = BaseFunctions::d2str(h);
+		_LH = BaseFunctions::d2str(l + h);
+		_W1 = BaseFunctions::d2str(w1);
+		_H1 = BaseFunctions::d2str(h1);
+		_W2 = BaseFunctions::d2str(w2);
+		_RA1 = adjust_values.at(6) + BaseFunctions::Int2Str(rand() % 99);
+		_RA2 = adjust_values.at(7) + BaseFunctions::Int2Str(rand() % 99);
+		_RB1 = adjust_values.at(6) + BaseFunctions::Int2Str(rand() % 99);
+		_RB2 = adjust_values.at(7) + BaseFunctions::Int2Str(rand() % 99);
+		_RB3 = adjust_values.at(8) + BaseFunctions::Int2Str(rand() % 99);
+		_RB4 = adjust_values.at(9) + BaseFunctions::Int2Str(rand() % 99);
+		Sleep(70);
 		xy_size_halcon.set_result_status(0);
+	}
 	result_status = xy_size_halcon.get_result_status();
 	//如果type不等于任何数字就会直接返回全0
 
