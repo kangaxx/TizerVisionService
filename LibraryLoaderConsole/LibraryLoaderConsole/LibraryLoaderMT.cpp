@@ -84,7 +84,6 @@ HImage LibraryLoaderMT::call_camera_no_delegate()
 		string cameraMidName = _system_config.search("cameraMidName");
 		string cameraRightName = _system_config.search("cameraRightName");
 
-
 		strcpy_s(leftCamera, cameraLeftName.c_str());
 		strcpy_s(midCamera, cameraMidName.c_str());
 		strcpy_s(rightCamera, cameraRightName.c_str());
@@ -207,3 +206,4 @@ unsigned long LibraryLoaderMT::readRedisProc(void* lpParameter) {
 	}//while
 	return 0;
 }
+

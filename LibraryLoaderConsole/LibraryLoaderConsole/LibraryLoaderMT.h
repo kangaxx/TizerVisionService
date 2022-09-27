@@ -41,7 +41,6 @@ private:
 	void heart_beat_thread(void* lpParameter);
 	HImage call_camera_no_delegate();
 	unsigned long readRedisProc(void* lpParameter);
-
 	//读取相机动态链接库 备用
 	//HImage run_msa_test() {
 	//	HINSTANCE hDllInst;

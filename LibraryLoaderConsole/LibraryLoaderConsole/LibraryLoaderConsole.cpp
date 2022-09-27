@@ -1,6 +1,8 @@
 // LibraryLoaderConsole.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
 //
 #include "LibraryLoaderMT.h"
+#include <MMSystem.h>
+#pragma comment(lib, "winmm.lib")
 #include "../../../hds/common.h"
 #include "../../../hds/commonfunction_c.h"
 #include "../../../hds/serialization_c11.h"
@@ -182,8 +184,12 @@ unsigned long thread_save_log(void* lpParameter) {
 			l.Log(message);
 			log_mtx.unlock();
 		}
-		else
-			Sleep(1);
+		else {
+			timeBeginPeriod(1);  // 设置精度为1毫秒
+			::Sleep(3);          // 当前线程挂起一毫秒
+			timeEndPeriod(1);    // 结束精度设置
+		}
+
 	}
 	return 0;
 }
@@ -352,7 +358,6 @@ public:
 		string cameraLeftName = ch.findValue("cameraLeftName", string("string"));
 		string cameraMidName = ch.findValue("cameraMidName", string("string"));
 		string cameraRightName = ch.findValue("cameraRightName", string("string"));
-		cout << "cameraLeftName: " << cameraLeftName << endl;
 		char* in[5];
 		char leftCamera[50], midCamera[50], rightCamera[50], param_num[5];
 		commonfunction_c::BaseFunctions::Int2Chars(param_num_, param_num);
@@ -476,68 +481,6 @@ public:
 			_log->Log("Error, camera setup fail");
 			throw "Error, camera setup fail!";
 		}
-	}
-
-	void call_plc_hsl_write_bool() {
-		HINSTANCE hDllInst;
-		hDllInst = LoadLibrary(BaseFunctions::s2ws(_ch->findValue("hslLibrary", string("string"))).c_str());
-		if (hDllInst == 0) {
-			_log->Log("Load hsl library fail!");
-			return;
-		}
-		connect_plc connect_plc_func = (connect_plc)GetProcAddress(hDllInst, "connect_plc");
-		if (connect_plc_func == 0) {
-			_log->Log("Load hsl library function connect_plc fail!");
-			return;
-		}
-		write_plc_bool write_plc_func = (write_plc_bool)GetProcAddress(hDllInst, "write_plc_bool");
-		if (write_plc_func == 0) {
-			_log->Log("Load hsl library function write_plc_bool fail!");
-			return;
-		}
-		disconnect_plc disconnect_plc_func = (disconnect_plc)GetProcAddress(hDllInst, "disconnect_plc");
-		if (disconnect_plc_func == 0) {
-			_log->Log("Load hsl library function write_plc_bool fail!");
-			return;
-		}
-
-		const char* addr = "w100.07";
-		int mesc = GetTickCount() % MSEC_LENGTH;
-		if (!connect_plc_func()) {
-			_log->Log("connect to plc fail!");
-			return;
-		}
-		int end_mesc = GetTickCount() % MSEC_LENGTH;
-
-		cout << " connect mesc " << mesc << " end mesc " << end_mesc << " time " << end_mesc - mesc << endl;
-		int end_cmd = 0;
-		while (0 == end_cmd) {
-			mesc = GetTickCount() % MSEC_LENGTH;
-			if (!write_plc_func(addr, true, true)) {
-				_log->Log("write to plc fail!");
-				return;
-			}
-			end_mesc = GetTickCount() % MSEC_LENGTH;
-			cout << "write to plc mesc " << mesc << " end mesc " << end_mesc << " time " << end_mesc - mesc << endl;
-			Sleep(10);
-			mesc = GetTickCount() % MSEC_LENGTH;
-			if (!write_plc_func(addr, false, true)) {
-				_log->Log("write to plc fail!");
-				return;
-			}
-			end_mesc = GetTickCount() % MSEC_LENGTH;
-			cout << "write to plc mesc " << mesc << " end mesc " << end_mesc << " time " << end_mesc - mesc << endl;
-
-
-			cin >> end_cmd;
-		}
-		mesc = GetTickCount() % MSEC_LENGTH;
-		if (!disconnect_plc_func()) {
-			_log->Log("disconnect fail!");
-			return;
-		}
-		end_mesc = GetTickCount() % MSEC_LENGTH;
-		cout << "disconnect mesc " << mesc << " end mesc " << end_mesc << " time " << end_mesc - mesc << endl;
 	}
 
 	void run_camera_no_delegate_no_processing() {
@@ -739,7 +682,9 @@ unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 			mtx.unlock();
 			if (!is_get_image) {
 				//不要再锁里sleep那样会一直锁
-				Sleep(5);
+				timeBeginPeriod(1);  // 设置精度为1毫秒
+				::Sleep(2);          // 当前线程挂起一毫秒
+				timeEndPeriod(1);    // 结束精度设置
 				continue;
 			}
 
@@ -773,22 +718,26 @@ unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 				if (result_status == 1 || result_status == 2) {
 					//需要完成plc功能 w100.07表示ng
 					write_plc_func(ng_addr, true, false);
-					Sleep(10);
-					write_plc_func(ng_addr, false, false);
 					log_mtx.lock();
 					update_current_msec(7);
 					HalconCpp::GetSystemTime(&system_time_msec, &system_time_sec, &system_time_min, &system_time_hour, 0, 0, 0, 0);
 					log_mtx.unlock();
+					timeBeginPeriod(1);  // 设置精度为1毫秒
+					::Sleep(15);          // 当前线程挂起一毫秒
+					timeEndPeriod(1);    // 结束精度设置
+					write_plc_func(ng_addr, false, false);
+					
 				}
 				else if (result_status == 0) {
 					write_plc_func(ok_addr, true, false);
-					Sleep(10);
-					write_plc_func(ok_addr, false, false);
 					log_mtx.lock();
 					update_current_msec(8);
 					HalconCpp::GetSystemTime(&system_time_msec, &system_time_sec, &system_time_min, &system_time_hour, 0, 0, 0, 0);
 					log_mtx.unlock();
-
+					timeBeginPeriod(1);  // 设置精度为1毫秒
+					::Sleep(15);          // 当前线程挂起一毫秒
+					timeEndPeriod(1);    // 结束精度设置
+					write_plc_func(ok_addr, false, false);
 				}
 				//log_mtx.lock();
 				//update_current_msec(2);
