@@ -59,8 +59,8 @@ bool VirtualCameraDevice::do_capture(int index, HalconCpp::HImage& image)
 				if (i == _camera_count - 1)
 					job_id++;
 				g_delegate_function(json, image_list[image_id++]);
-				Sleep(2);
 			}
+			Sleep(200);//每组图片之间保留一段时间否则实在太快了
 		}
 	else
 		ReadImage(&image, _image_files.at(index < _image_count ? index : _image_count - 1).c_str());

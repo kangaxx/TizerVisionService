@@ -10,6 +10,7 @@
 #include "../../../hds/commonfunction_c.h"
 #include "../../../hds/JsonHelper.h"
 #include "../../../hds/ConcurrentLogger.h"
+#include "../../../hds/CameraHelper.h"
 using namespace commonfunction_c;
 typedef bool (*write_plc_bool)(const char*, bool, bool);
 typedef bool (*connect_plc)();
@@ -25,7 +26,10 @@ public:
 	LibraryLoaderMT() : _mode(LOADER_MODE::LM_CONSOLE_MODE) {
 		initial();
 	}
-
+	~LibraryLoaderMT() {
+		if (NULL == _image_caches)
+			delete[]_image_caches;
+	}
 	void call_library_by_num(int num); //命令入口函数
 
 	void log(const char*);
@@ -34,12 +38,15 @@ private:
 	LOADER_MODE _mode;
 	JsonHelper _system_config;
 	ConcurrentLogger* _logger;
+	HImage* _image_caches = NULL;
+	int _camera_count = 0;
 	bool _initialed = false;
 	void initial();
 	bool call_lib_loader_plc_debug(); //调试plc库功
 	void call_heart_beat();
 	void heart_beat_thread(void* lpParameter);
 	HImage call_camera_no_delegate();
+	void call_camera_array_no_delegate();
 	unsigned long readRedisProc(void* lpParameter);
 	//读取相机动态链接库 备用
 	//HImage run_msa_test() {

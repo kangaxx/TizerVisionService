@@ -2,13 +2,17 @@
 using namespace sw::redis;
 typedef HImage(*cameraWork)(int, char* []);
 typedef void (*callHalconFunc)(char*);
+typedef void(*halconAction2)(int argc, char* in[], const char* image, char* out[]);
 typedef void (*setHalconFunction)(callHalconFunc);
+typedef CameraDevicesBase* (*get_camera_devices)(const char*); //初始化相机设备
+typedef void (*free_camera_devices)(); //释放相机
+
 void LibraryLoaderMT::call_library_by_num(int num)
 {
 	switch (num)
 	{
 	case CMD_NUM_FOR_LIB_LOADER_CAMERA_NO_DELEGATE:
-		call_camera_no_delegate();
+		HImage call_camera_no_delegate();
 		break;
 	case CMD_NUM_FOR_LIB_LOADER_PLC_DEBUG:
 		//调试plc通信
@@ -18,6 +22,9 @@ void LibraryLoaderMT::call_library_by_num(int num)
 	case CMD_NUM_FOR_LIB_LOADER_HEART_BEAT:
 		//启动心跳进程
 		call_heart_beat();
+		break;
+	case CMD_NUM_FOR_LIB_LOADER_MANUAL_PROCESSING:
+		call_camera_array_no_delegate();
 		break;
 	default:
 		break;
@@ -30,7 +37,7 @@ HImage LibraryLoaderMT::call_camera_no_delegate()
 	//读取相机动态链接库
 
 		//CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&readRedisProc, NULL, 0, 0);
-		HINSTANCE hDllInst;
+		HINSTANCE library_instance;
 		//configHelper ch("c:\\tizer\\config.ini", CT_JSON);
 		StringView key = REDIS_LIST_CALIBRATION_KEY;
 		Redis redis = Redis("tcp://127.0.0.1:6379");
@@ -62,20 +69,20 @@ HImage LibraryLoaderMT::call_camera_no_delegate()
 		catch (...) {
 			_logger->append_log("Calibarton line value read error!"); //test log
 		}
-		hDllInst = LoadLibrary(BaseFunctions::s2ws(_system_config.search("cameraLibrary")).c_str());
-		if (hDllInst == 0) {
+		library_instance = LoadLibrary(BaseFunctions::s2ws(_system_config.search("cameraLibrary")).c_str());
+		if (library_instance == 0) {
 			throw "Load camera library failed!";
 		}
 		cameraWork cameraWorkFunc = NULL;
-		cameraWorkFunc = (cameraWork)GetProcAddress(hDllInst, "cameraWorker");
+		cameraWorkFunc = (cameraWork)GetProcAddress(library_instance, "cameraWorker");
 		if (cameraWorkFunc == 0) {
-			FreeLibrary(hDllInst);
+			FreeLibrary(library_instance);
 			throw "Load camera library function failed!";
 		}
 		setHalconFunction setFunc = NULL;
-		setFunc = (setHalconFunction)GetProcAddress(hDllInst, "setHalconFunction");
+		setFunc = (setHalconFunction)GetProcAddress(library_instance, "setHalconFunction");
 		if (setFunc == 0) {
-			FreeLibrary(hDllInst);
+			FreeLibrary(library_instance);
 			throw "Load camera library set halcon function failed!";
 		}
 		//测试委托
@@ -205,5 +212,45 @@ unsigned long LibraryLoaderMT::readRedisProc(void* lpParameter) {
 		Sleep(2000);
 	}//while
 	return 0;
+}
+
+void LibraryLoaderMT::call_camera_array_no_delegate()
+{
+	HINSTANCE library_instance;
+	library_instance = LoadLibrary(BaseFunctions::s2ws(_system_config.search("cameraLibrary")).c_str());
+	if (library_instance == 0) {
+		throw "Load camera library failed!";
+	}
+	get_camera_devices get_camera_devices_func = NULL;
+	get_camera_devices_func = (get_camera_devices)GetProcAddress(library_instance, "get_camera_devices");
+	if (get_camera_devices_func == 0) {
+		FreeLibrary(library_instance);
+		throw "Load camera library function [get_camera_devices_func] failed!";
+	}
+	string camera_devices_info = _system_config.search("camera_devices_info");
+	CameraDevicesBase* devices = get_camera_devices_func(camera_devices_info.c_str());
+	if ((_camera_count = devices->get_devices_num()) < 0) {
+		_logger->Log("Error, no camera!");
+		throw "Error , no camera!";
+	}
+	if (_camera_count > MAX_CAMERA_COUNT) {
+		_logger->Log("Too many camera in system, maybe increase MAX_CAMERA_COUNT in common setup file!");
+		return;
+	}
+	HImage image_return[MAX_CAMERA_COUNT]; //委托模式下himage在回调方法里返回
+	vector<HImage*> image_list;
+	while(true) { //相机流程永远不会结束么？
+		for (int i = 0; i < _camera_count; ++i) {
+			if (devices->do_capture(i, image_return[i])) {
+				image_list.push_back(&image_return[i]);
+			}
+			else
+			{
+				_logger->Log("Error, camera setup fail");
+				throw "Error, camera setup fail!";
+			}
+		}
+	}
+	//照片
 }
 

@@ -1,1 +1,1 @@
-#define VER_BUILD 766
+#define VER_BUILD 767

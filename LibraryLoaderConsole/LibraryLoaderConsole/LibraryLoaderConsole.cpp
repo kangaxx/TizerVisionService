@@ -10,8 +10,6 @@
 #include "../../../hds/Logger.h"
 #include "../../../hds/configHelper.h"
 #include "../../../hds/JsonHelper.h"
-#include "../../../hds/CameraHelper.h"
-#include "../../../hds/MeasureSize.h"
 #include "../../../hds/tz_project_common.h"
 #include "SerialPort.h"
 
@@ -31,7 +29,8 @@ typedef void (*setCameraCapturedDelegate)(cameraCaputredDelegate);
 typedef void (*call_image_concat)();
 typedef bool (*trigger_complete)(int);
 typedef char** (*halcon_program)(int, char* [], HImage&, char**);
-typedef void (*halcon_program_image_list)(int, char* [], vector<HImage*>&, char*, MeasureSize&, int& result); //多相机列表类
+typedef bool (*initial_halcon_action)(int, const char*, vector<double>, vector<double>);
+typedef void (*halcon_program_image_list)(int, char* [], vector<HImage*>&, char*, int& result); //多相机列表类
 typedef bool (*write_plc_bool)(const char*, bool, bool);
 typedef bool (*connect_plc)();
 typedef bool (*disconnect_plc)();
@@ -337,7 +336,6 @@ public:
 		return;
 	}
 
-
 	HImage runCalibrationCameraLib() {
 		//CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&readRedisProc, NULL, 0, 0);
 		param_num_ = STANDARD_CAMERA_MODE;
@@ -572,50 +570,41 @@ unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 			ll.log("Halcon library load error!");
 			return 0;
 		}
-		halcon_program_image_list func = NULL;
-		func = (halcon_program_image_list)GetProcAddress(hDllInst, "halconActionWithImageList");
-		if (func == 0) {
+		initial_halcon_action func_halcon_initial = NULL;
+		func_halcon_initial = (initial_halcon_action)GetProcAddress(hDllInst, "initial_halcon_action");
+		if (func_halcon_initial == 0) {
+			ll.log("Halcon initial function load error!");
+			return 0;
+		}
+		halcon_program_image_list func_call_halcon = NULL;
+		func_call_halcon = (halcon_program_image_list)GetProcAddress(hDllInst, "halconActionWithImageList");
+		if (func_call_halcon == 0) {
 			ll.log("Halcon function load error!");
 			return 0;
 		}
 		string setup = ll.get("Setup");
 		vector<double> params;
 		int params_count = jh.read_array("camera_parameters", params);
-		if (params_count != 16) {
+		if (params_count != 9) {
 			ll.log("Error: halcon params count out of range!");
 			return 0;
 		}
-		MeasureSize ms(params.at(0), params.at(1), params.at(2), params.at(3),
-			params.at(4), params.at(5), params.at(6), params.at(7), params.at(8),
-			params.at(9), params.at(10), params.at(11), params.at(12), params.at(13), params.at(14), params.at(15));
-		//MeasureSize ms;
-		F0SIZE_PIXEL c0Pos;
-		F2SIZE_PIXEL c2Pos;
-		FSIZE stdSize;
 		vector<double> fmt_value;
 		int fmt_value_count = jh.read_array("std_size", fmt_value);
-		/*
-		if (0 == BaseFunctions::Str2Int(jh.search("node_type")))
-			fmt_value = &anode_std_size[0];
-		else if (1 == BaseFunctions::Str2Int(jh.search("node_type")))
-			fmt_value = &cathode_std_size[0];
-		else {
-			ll.log("Read config node_type error!");
-			return 0L;
-		}
-		*/
-		stdSize.W = fmt_value[0];
-		stdSize.L = fmt_value[1];
-		stdSize.H = fmt_value[2];
-		stdSize.H1 = fmt_value[3];
-		stdSize.W1 = fmt_value[4];
-		stdSize.W2 = fmt_value[5];
-		stdSize.Ra[0] = 3;
-		stdSize.Ra[1] = 3;
-		stdSize.Rb[0] = 3;
-		stdSize.Rb[1] = 3;
-		stdSize.Rb[2] = 3;
-		stdSize.Rb[3] = 3;
+
+		func_halcon_initial(1, jh.get_json_string().c_str(), params, fmt_value);
+		char* source[8];
+		//设置输入参数
+		//
+		string offsets = ll.get("Offsets");
+		//		source[0] = ll.temp_in_0; //status
+		source[1] = &setup[0];
+		source[2] = &offsets[0];
+		source[3] = NULL;
+		source[4] = NULL;
+		source[5] = NULL;
+		source[6] = NULL;
+		source[7] = NULL;
 		int used_mesc = 0;
 		//调用plc， connect代码 //暂时没有
 		HINSTANCE dll_hsl_plc;
@@ -646,27 +635,6 @@ unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 			ll.log("connect to plc fail!");
 			return 0;
 		}
-
-		HImage img_fmt_0, img_fmt_2;
-		mtx.lock();
-		img_fmt_0.ReadImage("C:/tizer/fmt_0.jpg");
-		img_fmt_2.ReadImage("C:/tizer/fmt_2.jpg");
-		if (0 == ms.CalcCamera0(img_fmt_0, c0Pos)
-			&& 0 == ms.CalcCamera2(img_fmt_2, c2Pos)
-			)
-		{
-			if (0 == ms.SetStdSize(stdSize)) {
-				ll.log("Format image setted success!");
-			}
-			else {
-				ll.log("Format image setted fail!");
-			}
-		}
-		else {
-			ll.log("Format image setted fail!");
-		}
-		mtx.unlock();
-		string offsets = ll.get("Offsets");
 		while (true) {
 			mtx.lock();
 			if (_temp_img0 != NULL && _temp_img1 != NULL) {
@@ -687,22 +655,6 @@ unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 				timeEndPeriod(1);    // 结束精度设置
 				continue;
 			}
-
-			int burr_limit = 15;
-			char* source[8];
-			//设置输入参数
-			//
-			int width = 1920; //实际参数需要参看相机情况，读取本地文件时设置为0
-			int height = 1080; // 同上
-			int polesWidth = 10;
-			source[0] = ll.temp_in_0; //status
-			source[1] = &setup[0];
-			source[2] = &offsets[0];
-			source[3] = NULL;
-			source[4] = NULL;
-			source[5] = NULL;
-			source[6] = NULL;
-			source[7] = NULL;
 			//初始化输出参数
 			try {
 				char test[INT_HALCON_BURR_RESULT_SIZE] = { "\0" };
@@ -714,7 +666,8 @@ unsigned long thd_call_halcon_camera_array_with_delegate(void* lpParameter) {
 				//HalconCpp::GetSystemTime(&system_time_msec, &system_time_sec, &system_time_min, &system_time_hour, 0, 0, 0, 0);
 				//log_mtx.unlock();
 				int result_status;
-				func(2, source, _captured_images, &test[0], ms, result_status);
+				source[0] = ll.temp_in_0; //status
+				func_call_halcon(2, source, _captured_images, &test[0], result_status);
 				if (result_status == 1 || result_status == 2) {
 					//需要完成plc功能 w100.07表示ng
 					write_plc_func(ng_addr, true, false);
@@ -787,14 +740,14 @@ int main(int argc, char** argv)
 	CreateThread(0, 0, (LPTHREAD_START_ROUTINE)&thread_save_log, NULL, 0, 0);
 	ll.log(PROGRAM_COMPLIRE_VERSION);
 	std::cout << "Hello World! Welcome to library loader, pls select library by num\n";
-	std::cout << "[0] exit program \n";
-	std::cout << "[1] winding test! \n";
-	std::cout << "[2] Image test! \n";
-	std::cout << "[3] create calibration file! \n";
-	std::cout << "[4] grab calibration image! \n";
-	std::cout << "[5] concat image manual, ONLY IN DEBUG MODE! \n";
-	std::cout << "[8] jmj test system function! \n";
-	std::cout << "[9] xy test system function! \n";
+	std::cout << WinFunctions::utf_to_gbk_string("[0] 关闭", 20) << endl;
+	std::cout << WinFunctions::utf_to_gbk_string("[1] 卷绕流程", 20) << endl;
+	std::cout << WinFunctions::utf_to_gbk_string("[2] 图像测试", 20) << endl;
+	//std::cout << "[3] create calibration file! \n";
+	//std::cout << "[4] grab calibration image! \n";
+	std::cout << WinFunctions::utf_to_gbk_string("[6] 手动触发拍摄流程", 30) << endl;
+	//std::cout << "[8] jmj test system function! \n";
+	std::cout << WinFunctions::utf_to_gbk_string("[9] 自动触发拍摄流程", 30) << endl;
 	while (true) {
 		if (get_cmd_num_from_redis > 0 && get_cmd_num_from_redis < 100)
 			index = get_cmd_num_from_redis;
@@ -814,7 +767,6 @@ int main(int argc, char** argv)
 				char status[30];
 				strcpy_s(status, 30, "{\"status\": 0,\"mode\" : 0}");
 				args[0] = &status[0];
-
 				ll.runHalconLib(2, args, "d:/images/trigger_concat_400");
 				break;
 			case 3:
@@ -864,6 +816,8 @@ int main(int argc, char** argv)
 	}
 	return 0;
 }
+
+
 
 // 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
 // 调试程序: F5 或调试 >“开始调试”菜单

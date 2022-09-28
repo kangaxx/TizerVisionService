@@ -19,19 +19,28 @@
 #include "../../../hds/MeasureSize.h"
 #include "../../../hds/tz_project_common.h"
 
+#define _VERTOSTRING(arg) #arg
+#define VERTOSTRING(arg) _VERTOSTRING(arg)
+#define VER_MAIN    1 //系统结构级别
+#define VER_SUB     1 //整体模块，主要通讯级别，兼容性变动
+#define VER_MODI    1 //bug批量修正，不影响兼容
+#define VER_FULL    VER_MAIN.VER_SUB.VER_MODI.VER_BUILD
+#define VER_FULL_RC VER_MAIN.VER_SUB.VER_MODI.VER_BUILD
+#define STR_VER_FULL    _T(VERTOSTRING(VER_FULL))
+#define STR_VER_FULL_RC VERTOSTRING(VER_FULL_RC)
+
 using namespace commonfunction_c;
 extern "C" {
-	__declspec(dllexport) void halconActionWithImageList(int, char* [], vector<HImage*>&, char*, MeasureSize&, int&);
+	__declspec(dllexport) bool initial_halcon_action(int, const char*, vector<double>, vector<double>);
+	__declspec(dllexport) void halconActionWithImageList(int, char* [], vector<HImage*>&, char*, int&);
 }
 
 
 
 class XySizeMeasureHalcon {
 public:
-	XySizeMeasureHalcon(char* json_input, vector<HImage*>& images) : _images(images) {
+	XySizeMeasureHalcon(const char* json_input) {
 		JsonHelper jh(json_input);
-		_camera_tag = jh.search("camera_tag");
-		_job_id = BaseFunctions::str2d(jh.search("job_id"));
 		string log_dir = jh.search("log_dir");
 		if (log_dir.length() <= 0)
 			log_dir = "logs";
@@ -47,18 +56,29 @@ public:
 #endif
 		_log = new Logger(_log_dir);
 	}
+	~XySizeMeasureHalcon() {
+		if (NULL != _measure_size) {
+			delete _measure_size;
+			_measure_size = NULL;
+		}
+	}
+	bool initial_measure_size(vector<double> params, vector<double> std_size_values);
+	void set_images(char* json_input, vector<HImage*>& images) {
+		JsonHelper jh(json_input);
+		_camera_tag = jh.search("camera_tag");
+		_job_id = BaseFunctions::str2d(jh.search("job_id"));
+		_image_lt = *images.at(0);
+		_image_r = *images.at(1);
+	}
 	int get_result(double& w, double& l, double& h, double& w1, double& w2, double& h1, double& h2, double& ra1, double& ra2, double& rb1, double& rb2, double& rb3, double& rb4);
 	int get_job_id() { return _job_id; }
-	bool is_initialed() { return _images.size() == 3; }
+	bool is_initialed() { return true;; }
 	string get_calib_dir();
-	int get_result_status() {
-		return _result_status;
-	}
-	int measure_image_by_zf(FSIZE& size, MeasureSize& ms);
+	int get_result_status() { return _result_status; }
+	int measure_image_by_zf(FSIZE& size);
 	void set_result_status(int v) { _result_status = v; }
 	HImage _image_lt, _image_lb, _image_r;
 private:
-	vector<HImage*> _images;
 	/// <summary>
 	/// 
 	/// </summary>
@@ -104,6 +124,10 @@ private:
 	int _result_status = 0;
 	string _log_dir, _calib_dir, _camera_tag;
 	int _job_id;
+	MeasureSize* _measure_size = NULL;
+	F0SIZE_PIXEL _c0Pos;
+	F2SIZE_PIXEL _c2Pos;
+	FSIZE _std_size;
 };
 
 

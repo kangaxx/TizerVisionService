@@ -7,45 +7,23 @@
 
 static int g_id = 0;
 static int g_image_saved_count = 0; //每10次存一张图，否则太卡
-void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list, char* out, MeasureSize& ms, int& result_status)
+static XySizeMeasureHalcon* g_xy_size_halcon = NULL;
+bool initial_halcon_action(int argc, const char* config_json, vector<double> params, vector<double> std_size_values)
 {
-
-	/*纯调试代码
-	srand(time(NULL));
-	int L = 140 + rand() % 25;
-	int H = 15 + rand() % 20;
-	string _W = BaseFunctions::Int2Str(70 + rand() % 10) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_L = BaseFunctions::Int2Str(L) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_H = BaseFunctions::Int2Str(H) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_LH = BaseFunctions::Int2Str(L + H) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_W1 = BaseFunctions::Int2Str(8) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_W2 = BaseFunctions::Int2Str(20) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_H1 = BaseFunctions::Int2Str(1) + "." + BaseFunctions::Int2Str(rand() % 25),
-		_RA1 = BaseFunctions::Int2Str(4) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_RA2 = BaseFunctions::Int2Str(4) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_RA3 = BaseFunctions::Int2Str(4) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_RA4 = BaseFunctions::Int2Str(4) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_RB1 = BaseFunctions::Int2Str(4) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_RB2 = BaseFunctions::Int2Str(4) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_RB3 = BaseFunctions::Int2Str(4) + "." + BaseFunctions::Int2Str(rand() % 9),
-		_RB4 = BaseFunctions::Int2Str(4) + "." + BaseFunctions::Int2Str(rand() % 9);
-	string result = "{\"id\":0,\"W\":" + _W + ",\"L\":" + _L
-		+ ",\"H\":" + _H + ",\"LH\":" + _LH + ",\"W1\":" + _W1 + ",\"W2\":"
-		+ _W2 + ",\"H1\":" + _H1 + ",\"RA1\":" + _RA1 + ",\"RA2\":"
-		+ _RA2 + ",\"RB1\":" + _RB1 + ",\"RB2\":" + _RB2 + ",\"RB3\":"
-		+ _RB3 + ",\"RB4\":" + _RB4 + "}";
-	strcpy_s(out, INT_HALCON_BURR_RESULT_SIZE, result.c_str());
-	*/
+	if (NULL == g_xy_size_halcon)
+		g_xy_size_halcon = new XySizeMeasureHalcon(config_json);
+	return g_xy_size_halcon->initial_measure_size(params, std_size_values);
+}
+void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list, char* out, int& result_status)
+{
 	//读取参数配置文件
 	int i = 0;
 	double w, l, h, w1, w2, h1, h2, ra1, ra2, rb1, rb2, rb3, rb4;
-	XySizeMeasureHalcon xy_size_halcon(in[0], image_list);
-	xy_size_halcon._image_lt = *image_list.at(0);
-	xy_size_halcon._image_r = *image_list.at(1);
+	g_xy_size_halcon->set_images(in[0], image_list);
 	/*特别调试模式， 多线程模式下
 	char file_name_la[40], file_name_ra[40];
-	xy_size_halcon._image_lt.WriteImage("jpg", 0, file_name_la);
-	xy_size_halcon._image_r.WriteImage("jpg", 0, file_name_ra);
+	g_xy_size_halcon->_image_lt.WriteImage("jpg", 0, file_name_la);
+	g_xy_size_halcon->_image_r.WriteImage("jpg", 0, file_name_ra);
 */
 	JsonHelper jh_calib(in[2]);
 	vector<string> adjust_values;
@@ -82,7 +60,7 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 	//不调用任何算法直接返回全0数据
 	//赵总的算法
 	FSIZE result_size;
-	if (0 == type && XINYU_IMAGE_MEASURE_RESULT_FAIL != xy_size_halcon.measure_image_by_zf(result_size, ms)) {
+	if (0 == type && XINYU_IMAGE_MEASURE_RESULT_FAIL != g_xy_size_halcon->measure_image_by_zf(result_size)) {
 		srand(time(NULL));
 		l = result_size.L;
 		h = result_size.H;
@@ -110,41 +88,41 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 		double v, v_a;
 		calc_std.get_value_h(v, v_a);
 		if (abs(result_size.H + BaseFunctions::str2d(adjust_values.at(2)) - v) > v_a) {
-			xy_size_halcon.set_result_status(1);
+			g_xy_size_halcon->set_result_status(1);
 			cout << "rst H : " << result_size.H + BaseFunctions::str2d(adjust_values.at(2)) << " v : " << v << " v_add : " << v_a << endl;
 		}
 		calc_std.get_value_h1(v, v_a);
 		if (abs(result_size.H1 + BaseFunctions::str2d(adjust_values.at(4)) - v) > v_a){
-			xy_size_halcon.set_result_status(1);
+			g_xy_size_halcon->set_result_status(1);
 			cout << "rst H1 : " << result_size.H1 + BaseFunctions::str2d(adjust_values.at(4)) << " v : " << v << " v_add : " << v_a << endl;
 		}
 
 		calc_std.get_value_l(v, v_a);
 		if (abs(result_size.L + BaseFunctions::str2d(adjust_values.at(1)) - v) > v_a) {
-			xy_size_halcon.set_result_status(1);
+			g_xy_size_halcon->set_result_status(1);
 			cout << "rst L : " << result_size.L + BaseFunctions::str2d(adjust_values.at(1)) << " v : " << v << " v_add : " << v_a << endl;
 		}
 		calc_std.get_value_w(v, v_a);
 		if (abs(result_size.W + BaseFunctions::str2d(adjust_values.at(0)) - v) > v_a){
-			xy_size_halcon.set_result_status(1);
+			g_xy_size_halcon->set_result_status(1);
 			cout << "rst W : " << result_size.W + BaseFunctions::str2d(adjust_values.at(0)) << " v : " << v << " v_add : " << v_a << endl;
 		}
 		calc_std.get_value_w1(v, v_a);
 		if (abs(result_size.W1 + BaseFunctions::str2d(adjust_values.at(3)) - v) > v_a){
-			xy_size_halcon.set_result_status(1);
+			g_xy_size_halcon->set_result_status(1);
 			cout << "rst W1 : " << result_size.W1 + BaseFunctions::str2d(adjust_values.at(3)) << " v : " << v << " v_add : " << v_a << endl;
 		}
 		calc_std.get_value_w2(v, v_a);
 		if (abs(result_size.W2 + BaseFunctions::str2d(adjust_values.at(5)) - v) > v_a){
-			xy_size_halcon.set_result_status(1);
+			g_xy_size_halcon->set_result_status(1);
 			cout << "rst W2 : " << result_size.W2 + BaseFunctions::str2d(adjust_values.at(5)) << " v : " << v << " v_add : " << v_a << endl;
 		}
-		result_status = xy_size_halcon.get_result_status();
+		result_status = g_xy_size_halcon->get_result_status();
 	}
 
 
 	//gxx的算法
-	if (3 == type && XINYU_IMAGE_MEASURE_RESULT_FAIL != xy_size_halcon.get_result(w, l, h, w1, w2, h1, h2, ra1, ra2, rb1, rb2, rb3, rb4)) {
+	if (3 == type && XINYU_IMAGE_MEASURE_RESULT_FAIL != g_xy_size_halcon->get_result(w, l, h, w1, w2, h1, h2, ra1, ra2, rb1, rb2, rb3, rb4)) {
 		srand(time(NULL));
 		//l += BaseFunctions::str2d(adjust_values.at(1));
 		//h += BaseFunctions::str2d(adjust_values.at(2));
@@ -228,26 +206,26 @@ void halconActionWithImageList(int argc, char* in[], vector<HImage*>& image_list
 		_RB3 = adjust_values.at(8) + BaseFunctions::Int2Str(rand() % 99);
 		_RB4 = adjust_values.at(9) + BaseFunctions::Int2Str(rand() % 99);
 		Sleep(70);
-		xy_size_halcon.set_result_status(0);
+		g_xy_size_halcon->set_result_status(0);
 	}
-	result_status = xy_size_halcon.get_result_status();
+	result_status = g_xy_size_halcon->get_result_status();
 	//如果type不等于任何数字就会直接返回全0
 
-	if (save_image_type <= xy_size_halcon.get_result_status()) {
+	if (save_image_type <= g_xy_size_halcon->get_result_status()) {
 		if (2 > save_image_type || 0 == g_image_saved_count % 5) {
 			char file_name_l[40], file_name_r[40];
-			sprintf_s(file_name_l, 40, "D:/Images/xy_image_t%d_at_0_%d.jpg", xy_size_halcon.get_result_status(), xy_size_halcon.get_job_id());
-			sprintf_s(file_name_r, 40, "D:/Images/xy_image_t%d_at_2_%d.jpg", xy_size_halcon.get_result_status(), xy_size_halcon.get_job_id());
-			xy_size_halcon._image_lt.WriteImage("jpg", 0, file_name_l);
-			xy_size_halcon._image_r.WriteImage("jpg", 0, file_name_r);
+			sprintf_s(file_name_l, 40, "D:/Images/xy_image_t%d_at_0_%d.jpg", g_xy_size_halcon->get_result_status(), g_xy_size_halcon->get_job_id());
+			sprintf_s(file_name_r, 40, "D:/Images/xy_image_t%d_at_2_%d.jpg", g_xy_size_halcon->get_result_status(), g_xy_size_halcon->get_job_id());
+			g_xy_size_halcon->_image_lt.WriteImage("jpg", 0, file_name_l);
+			g_xy_size_halcon->_image_r.WriteImage("jpg", 0, file_name_r);
 		}
 		g_image_saved_count++;
 	}
-	string result = "{\"id\":" + BaseFunctions::Int2Str(xy_size_halcon.get_job_id()) + ",\"W\":" + _W + ",\"L\":" + _L
+	string result = "{\"id\":" + BaseFunctions::Int2Str(g_xy_size_halcon->get_job_id()) + ",\"W\":" + _W + ",\"L\":" + _L
 		+ ",\"H\":" + _H + ",\"LH\":" + _LH + ",\"W1\":" + _W1 + ",\"W2\":"
 		+ _W2 + ",\"H1\":" + _H1 + ",\"RA1\":" + _RA1 + ",\"RA2\":"
 		+ _RA2 + ",\"RB1\":" + _RB1 + ",\"RB2\":" + _RB2 + ",\"RB3\":"
-		+ _RB3 + ",\"RB4\":" + _RB4 + ",\"msg\":\"" + BaseFunctions::Int2Str(xy_size_halcon.get_result_status()) + "\"}";
+		+ _RB3 + ",\"RB4\":" + _RB4 + ",\"msg\":\"" + BaseFunctions::Int2Str(g_xy_size_halcon->get_result_status()) + "\"}";
 	strcpy_s(out, INT_HALCON_BURR_RESULT_SIZE, result.c_str());
 	cout << "res  : " << result << endl;
 }
@@ -339,7 +317,7 @@ int XySizeMeasureHalcon::measure_image_left_by_calib_file(HTuple& edge_world_y_t
 	HImage cal_image;
 	get_cali_data(CP_LEFT_TOP, parames, poses, calib_image_name, plate_description);
 	ReadImage(&cal_image, calib_image_name);
-	HImage* image = _images.at(0);
+	HImage* image = &_image_lt;
 	Hlong w, h;
 	image->GetImageSize(&w, &h); //正常来说前三行不会出错，除非开发工作没有完成...
 	//计算极耳w1值，h1值
@@ -395,6 +373,50 @@ int XySizeMeasureHalcon::measure_image_left_by_calib_file(HTuple& edge_world_y_t
 	return 1; //暂时一律返回1，不再运行左下角 gxx 220822
 }
 
+bool XySizeMeasureHalcon::initial_measure_size(vector<double> params, vector<double> std_size_values)
+{
+	/*
+MeasureSize(double c0BodyGray, double c0EarGray, double c0EdgeThreshold,
+double c2BodyGray, double c2EdgeThreshold, double gray_ramp_beta, double gray_ramp_column)
+*/
+	if (NULL == _measure_size)
+		_measure_size = new MeasureSize(params.at(0), params.at(1), params.at(2), params.at(3),
+			params.at(4), params.at(5), params.at(6), params.at(7), params.at(8));
+	_std_size.W = std_size_values[0];
+	_std_size.L = std_size_values[1];
+	_std_size.H = std_size_values[2];
+	_std_size.H1 = std_size_values[3];
+	_std_size.W1 = std_size_values[4];
+	_std_size.W2 = std_size_values[5];
+	_std_size.Ra[0] = 3;
+	_std_size.Ra[1] = 3;
+	_std_size.Rb[0] = 3;
+	_std_size.Rb[1] = 3;
+	_std_size.Rb[2] = 3;
+	_std_size.Rb[3] = 3;
+	HImage img_fmt_0, img_fmt_2;
+	img_fmt_0.ReadImage("C:/tizer/fmt_0.jpg");
+	img_fmt_2.ReadImage("C:/tizer/fmt_2.jpg");
+	_measure_size->SetMeasurePos();
+	if (0 == _measure_size->CalcCamera0(img_fmt_0, _c0Pos)
+		&& 0 == _measure_size->CalcCamera2(img_fmt_2, _c2Pos)
+		)
+	{
+		if (0 == _measure_size->SetStdSize(_std_size)) {
+			_log->Log("Format image setted success!");
+			return true;
+		}
+		else {
+			_log->Log("Format image setted fail!");
+			return false;
+		}
+	}
+	else {
+		_log->Log("Format image setted fail!");
+	}
+	return false;
+}
+
 int XySizeMeasureHalcon::measure_image_right_by_calib_file(HTuple& edge_world_y_r, HTuple& edge_world_x_r, HTuple& edge_world_y_rb, HTuple& edge_world_x_rb,
 	HTuple& circle_world_y_rt, HTuple& circle_world_x_rt,
 	HTuple& circle_world_y_rb, HTuple& circle_world_x_rb)
@@ -406,7 +428,7 @@ int XySizeMeasureHalcon::measure_image_right_by_calib_file(HTuple& edge_world_y_
 	get_cali_data(pos, parames, poses, calib_image_name, plate_description);
 	ReadImage(&cal_image, calib_image_name);
 
-	HImage* image = _images.at(2);
+	HImage* image = &_image_r;
 	*image = image->RotateImage(-90, "constant");
 	Hlong w, h;
 	image->GetImageSize(&w, &h);
@@ -681,16 +703,16 @@ int XySizeMeasureHalcon::search_rect(HImage* image, const HObject& roi, HTuple g
 
 }
 
-int XySizeMeasureHalcon::measure_image_by_zf(FSIZE& size, MeasureSize& ms)
+int XySizeMeasureHalcon::measure_image_by_zf(FSIZE& size)
 {
 	F0SIZE_PIXEL c0Pos;
 	F2SIZE_PIXEL c2Pos;
 	set_result_status(2);
-	if (0 != ms.CalcCamera0(_image_lt, c0Pos))
+	if (0 != _measure_size->CalcCamera0(_image_lt, c0Pos))
 		return XINYU_IMAGE_MEASURE_RESULT_FAIL;
-	if(0 != ms.CalcCamera2(_image_r, c2Pos))
+	if(0 != _measure_size->CalcCamera2(_image_r, c2Pos))
 		return XINYU_IMAGE_MEASURE_RESULT_FAIL;
-	if (0 != ms.CalcSize(c0Pos, c2Pos, size))
+	if (0 != _measure_size->CalcSize(c0Pos, c2Pos, size))
 		return XINYU_IMAGE_MEASURE_RESULT_FAIL;
 	set_result_status(0);
 	//cout << size.W << " " << size.L << " " << size.H << " " << size.H1 << " " << size.W1 << " " << size.W2;
