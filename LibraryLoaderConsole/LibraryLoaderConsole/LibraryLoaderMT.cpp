@@ -202,7 +202,7 @@ unsigned long LibraryLoaderMT::readRedisProc(void* lpParameter) {
 			cout << "is ng pos :" << jh.search(WINDING_NG_RESULT_KEY).find(WINDING_NG_RESULT_ISNG) << endl;
 			//if (jh.search(WINDING_NG_RESULT_KEY).find(WINDING_NG_RESULT_ISNG) == 0)
 				//switchTrigger485(ELECTRIC_RELAY_COM_NUM);
-		}
+		} 
 		catch (char* err) {
 			cout << err << endl;
 		}
