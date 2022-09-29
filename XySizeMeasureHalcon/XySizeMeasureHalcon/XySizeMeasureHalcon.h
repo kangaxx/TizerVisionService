@@ -35,8 +35,6 @@ extern "C" {
 	__declspec(dllexport) void halconActionWithImageList(int, char* [], vector<HImage*>&, char*, int&);
 }
 
-
-
 class XySizeMeasureHalcon {
 public:
 	XySizeMeasureHalcon(const char* json_input) {
